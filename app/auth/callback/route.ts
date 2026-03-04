@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
   const { data: adminUser, error: adminError } = await supabase
     .from('admin_users')
-    .select('id')
+    .select('id, user_id')
     .eq('email', user?.email)
     .single();
   console.log('[auth/callback] admin lookup:', { found: !!adminUser, error: adminError?.message ?? null });
@@ -58,6 +58,15 @@ export async function GET(request: NextRequest) {
       rejectedResponse.cookies.set(name, value, options)
     );
     return rejectedResponse;
+  }
+
+  // Populate user_id on first login (rows added via SQL INSERT have null user_id)
+  if (user && !(adminUser as { user_id?: string }).user_id) {
+    await supabase
+      .from('admin_users')
+      .update({ user_id: user.id })
+      .eq('id', adminUser.id);
+    console.log('[auth/callback] populated user_id for', user.email);
   }
 
   console.log('[auth/callback] admin verified, redirecting to', next);

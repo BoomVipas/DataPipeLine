@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { fetchApprovalPhotos } from '@/lib/autofill/photos';
-import type { VenueStatus, Activity } from '@/types/venue';
+import type { VenueStatus } from '@/types/venue';
 
 const VALID_TRANSITIONS: Record<VenueStatus, VenueStatus[]> = {
   draft: ['approved', 'published', 'archived'],
@@ -24,7 +24,7 @@ async function syncToActivity(
 
   if (!venue) throw new Error('Venue not found');
 
-  const activityPayload: Omit<Activity, 'id' | 'created_at' | 'updated_at'> = {
+  const activityPayload = {
     name: venue.name,
     category_id: venue.category_id ?? null,
     created_by: adminUserId,
@@ -46,7 +46,6 @@ async function syncToActivity(
     long_description: venue.long_description ?? null,
     features: venue.features ?? null,
     facilities: venue.facilities ?? null,
-    venue_id: venueId,
   };
 
   // Re-publish: update existing activity row
@@ -119,10 +118,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       update.published_at = now;
       update.activity_id = activityId;
     } catch (err) {
-      return NextResponse.json(
-        { error: `Failed to publish: ${err instanceof Error ? err.message : 'Unknown error'}` },
-        { status: 500 }
-      );
+      const msg = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message ?? JSON.stringify(err);
+      return NextResponse.json({ error: `Failed to publish: ${msg}` }, { status: 500 });
     }
   }
 

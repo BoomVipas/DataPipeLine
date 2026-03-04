@@ -7,6 +7,7 @@ import VenueNotes from '@/components/venues/VenueNotes';
 import VenueMobilePreview from '@/components/venues/VenueMobilePreview';
 import type { Venue, VenueNote } from '@/types/venue';
 import { SUB_CATEGORY_LABELS } from '@/lib/utils/categories';
+import QuickFillPanel from '@/components/venues/QuickFillPanel';
 
 export default async function VenueDetailPage({
   params,
@@ -25,7 +26,7 @@ export default async function VenueDetailPage({
     .eq('user_id', user.id)
     .single();
 
-  const [{ data: venue }, { data: notes }] = await Promise.all([
+  const [{ data: venue }, { data: notes }, { data: categoriesData }] = await Promise.all([
     supabase
       .from('venues')
       .select('*, category:category(id,name,key,icon_key)')
@@ -37,6 +38,11 @@ export default async function VenueDetailPage({
       .select('*, author:admin_users(display_name)')
       .eq('venue_id', id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('category')
+      .select('id, name, key')
+      .eq('level', 1)
+      .order('sort_order'),
   ]);
 
   if (!venue) notFound();
@@ -91,6 +97,12 @@ export default async function VenueDetailPage({
           adminUserId={adminUser.id}
         />
       )}
+
+      {/* Quick-fill missing fields */}
+      <QuickFillPanel
+        venue={v}
+        categories={categoriesData ?? []}
+      />
 
       {/* Hero image */}
       {v.hero_image_url && (
@@ -171,8 +183,8 @@ export default async function VenueDetailPage({
                   const slots = v.opening_hours?.[day] ?? [];
                   return (
                     <div key={day} className="flex justify-between text-sm">
-                      <span className="text-gray-500 capitalize">{day.slice(0, 3)}</span>
-                      <span className="text-gray-700">
+                      <span className="text-gray-600 font-medium capitalize">{day.slice(0, 3)}</span>
+                      <span className="text-gray-900">
                         {slots.length === 0
                           ? 'Closed'
                           : slots.map(s => `${s.open}–${s.close}`).join(', ')}
@@ -277,7 +289,7 @@ export default async function VenueDetailPage({
 function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
+      <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{title}</h3>
       {children}
     </div>
   );
@@ -287,8 +299,8 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value && value !== 0) return null;
   return (
     <div className="flex justify-between gap-4 text-sm">
-      <span className="text-gray-500 shrink-0">{label}</span>
-      <span className="text-gray-800 text-right">{value}</span>
+      <span className="text-gray-600 shrink-0 font-medium">{label}</span>
+      <span className="text-gray-900 text-right">{value}</span>
     </div>
   );
 }
