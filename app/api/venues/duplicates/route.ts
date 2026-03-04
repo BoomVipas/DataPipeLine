@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   // Name fuzzy match (case-insensitive)
   let query = supabase
     .from('venues')
