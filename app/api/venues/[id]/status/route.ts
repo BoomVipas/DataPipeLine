@@ -13,7 +13,6 @@ const VALID_TRANSITIONS: Record<VenueStatus, VenueStatus[]> = {
 /** Sync a published venue to the activity table (what the mobile app reads) */
 async function syncToActivity(
   venueId: string,
-  adminUserId: string,
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<string> {
   const { data: venue } = await supabase
@@ -27,7 +26,7 @@ async function syncToActivity(
   const activityPayload = {
     name: venue.name,
     category_id: venue.category_id ?? null,
-    created_by: adminUserId,
+    created_by: null,
     is_verified: true,
     is_temporary: false,
     google_place_id: venue.google_place_id ?? null,
@@ -113,7 +112,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (newStatus === 'published') {
     try {
-      const activityId = await syncToActivity(id, adminUser.id, supabase);
+      const activityId = await syncToActivity(id, supabase);
       update.published_by = adminUser.id;
       update.published_at = now;
       update.activity_id = activityId;

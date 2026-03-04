@@ -135,8 +135,8 @@ export default async function VenuesPage({
             <tbody className="divide-y divide-gray-100">
               {(venues as unknown as VenueListRow[]).map(venue => (
                 <tr key={venue.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
+                  <td className="p-0">
+                    <Link href={`/venues/${venue.id}`} className="flex items-center gap-3 px-4 py-3">
                       {venue.hero_image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={venue.hero_image_url} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
@@ -144,33 +144,42 @@ export default async function VenuesPage({
                         <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0" />
                       )}
                       <span className="font-medium text-gray-900">{venue.name}</span>
-                    </div>
+                    </Link>
                   </td>
-                  <td className="px-4 py-3">
-                    {venue.category && (
-                      <div className="flex flex-col gap-1">
-                        <Badge variant="category" categoryKey={venue.category.key} categoryName={venue.category.name} />
-                        {venue.sub_category && (
-                          <span className="text-xs text-gray-400 capitalize">{venue.sub_category}</span>
-                        )}
-                      </div>
-                    )}
+                  <td className="p-0">
+                    <Link href={`/venues/${venue.id}`} className="flex items-center px-4 py-3 h-full">
+                      {venue.category && (
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="category" categoryKey={venue.category.key} categoryName={venue.category.name} />
+                          {venue.sub_category && (
+                            <span className="text-xs text-gray-400 capitalize">{venue.sub_category}</span>
+                          )}
+                        </div>
+                      )}
+                    </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{venue.district ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant="status" status={venue.status} />
+                  <td className="p-0">
+                    <Link href={`/venues/${venue.id}`} className="flex items-center px-4 py-3 h-full text-gray-600">{venue.district ?? '—'}</Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {venue.rating ? `${venue.rating}★` : '—'}
+                  <td className="p-0">
+                    <Link href={`/venues/${venue.id}`} className="flex items-center px-4 py-3 h-full">
+                      <Badge variant="status" status={venue.status} />
+                    </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">
-                    {venue.created_at
-                      ? new Date(venue.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-                      : '—'}
+                  <td className="p-0">
+                    <Link href={`/venues/${venue.id}`} className="flex items-center px-4 py-3 h-full text-gray-600">
+                      {venue.rating ? `${venue.rating}★` : '—'}
+                    </Link>
+                  </td>
+                  <td className="p-0">
+                    <Link href={`/venues/${venue.id}`} className="flex items-center px-4 py-3 h-full text-gray-400 text-xs">
+                      {venue.created_at
+                        ? new Date(venue.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                        : '—'}
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2 justify-end">
-                      <Link href={`/venues/${venue.id}`} className="text-xs text-gray-600 hover:text-gray-900 underline">View</Link>
                       <Link href={`/venues/${venue.id}/edit`} className="text-xs text-gray-600 hover:text-gray-900 underline">Edit</Link>
                     </div>
                   </td>
