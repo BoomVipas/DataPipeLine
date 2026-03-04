@@ -69,6 +69,11 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this exact st
   "district": "Bangkok district name",
   "phone": "+66...",
   "website_url": "https://...",
+  "instagram_url": "https://instagram.com/...",
+  "facebook_url": "https://facebook.com/...",
+  "line_id": "@lineusername",
+  "booking_url": "https://...",
+  "booking_method": "online|phone|walkin|app",
   "opening_hours": {
     "monday":    [{"open": "HH:MM", "close": "HH:MM"}],
     "tuesday":   [{"open": "HH:MM", "close": "HH:MM"}],
@@ -81,7 +86,10 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this exact st
   "price_level": <1|2|3|4>,
   "rating": <Google rating 1-5>,
   "rating_count": <integer>,
-  "short_description": "2-3 sentence description of the venue",
+  "features": ["feature1", "feature2"],
+  "facilities": ["facility1", "facility2"],
+  "short_description": "2-3 sentence description for app venue cards",
+  "long_description": "3-5 paragraph detailed description of the venue, its atmosphere, what to expect, and who it's for",
   "suggested_category": "fitness|wellness|casual|nightlife"
 }
 
@@ -90,7 +98,12 @@ Rules:
 - Use null for any field you cannot find with confidence
 - Times must be 24-hour HH:MM format
 - price_level: 1=budget, 2=moderate, 3=expensive, 4=luxury
-- suggested_category: fitness (gym/yoga/sport), wellness (spa/meditation/recovery), casual (cafe/restaurant/entertainment), nightlife (bar/club)
+- suggested_category: fitness (gym/yoga/sport/cycling), wellness (spa/meditation/recovery/yoga), casual (cafe/restaurant/entertainment/social), nightlife (bar/club)
+- features: specific things the venue offers or is known for, e.g. ["All Levels Welcome", "Gear Rental", "Drop-in Sessions", "Air Conditioned", "Certified Instructors"]
+- facilities: physical amenities on-site, e.g. ["Parking", "Locker Room", "Showers", "Cafe", "WiFi", "Changing Room"]
+- line_id: Thai LINE app ID (often listed on Thai venue websites as "@username"), search in Thai if needed
+- booking_method: "online" if they have an online booking form/app, "phone" if booking by call, "walkin" if no reservation needed, "app" if via a specific app
+- booking_url: the direct URL to book or reserve (e.g. Klook link, venue booking page, or app download link)
 - For split hours (e.g. lunch break), add a second slot to that day's array`;
 }
 
@@ -132,6 +145,21 @@ export async function searchVenueWithGemini(
   if (typeof data.rating === 'number') result.rating = data.rating;
   if (typeof data.rating_count === 'number') result.rating_count = Math.round(data.rating_count);
   if (typeof data.short_description === 'string') result.short_description = data.short_description;
+  if (typeof data.long_description === 'string') result.long_description = data.long_description;
+  if (typeof data.instagram_url === 'string') result.instagram_url = data.instagram_url;
+  if (typeof data.facebook_url === 'string') result.facebook_url = data.facebook_url;
+  if (typeof data.line_id === 'string') result.line_id = data.line_id;
+  if (typeof data.booking_url === 'string') result.booking_url = data.booking_url;
+  if (typeof data.booking_method === 'string' &&
+    ['online', 'phone', 'walkin', 'app'].includes(data.booking_method)) {
+    result.booking_method = data.booking_method;
+  }
+  if (Array.isArray(data.features) && data.features.every(f => typeof f === 'string')) {
+    result.features = data.features as string[];
+  }
+  if (Array.isArray(data.facilities) && data.facilities.every(f => typeof f === 'string')) {
+    result.facilities = data.facilities as string[];
+  }
   if (
     typeof data.suggested_category === 'string' &&
     ['fitness', 'wellness', 'casual', 'nightlife'].includes(data.suggested_category)

@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
   if (!input) return NextResponse.json({ success: false, error: 'Input is required' }, { status: 400 });
 
   log.push(`[${ts()}] Starting parallel fetch for: "${input}"`);
-  log.push(`[${ts()}] → [Thread 1] Gemini 2.0 Flash with Google Search grounding`);
+  log.push(`[${ts()}] → [Thread 1] Gemini 2.5 Flash with Google Search grounding`);
   log.push(`[${ts()}] → [Thread 2] Google Places API — text search + place details`);
 
   // Run Gemini and Google Places in parallel

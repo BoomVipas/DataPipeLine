@@ -36,6 +36,9 @@ export interface AutofillVenueData {
   booking_method?: string;
   booking_url?: string;
 
+  features?: string[];          // e.g. ["All Levels", "Gear Included"]
+  facilities?: string[];        // e.g. ["Parking", "Showers"]
+
   short_description?: string;   // 2-3 sentence summary (app cards)
   long_description?: string;    // Full description (app detail page)
   hero_image_url?: string;

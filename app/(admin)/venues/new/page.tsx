@@ -10,10 +10,12 @@ export default function NewVenuePage() {
   const router = useRouter();
   const [autofillData, setAutofillData] = useState<AutofillVenueData | null>(null);
   const [descriptionIsAi, setDescriptionIsAi] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   function handleAutofillResult(data: AutofillVenueData, isAi: boolean) {
     setAutofillData(data);
     setDescriptionIsAi(isAi);
+    setFormKey(k => k + 1); // force VenueForm to remount with new initial values
     // Scroll to form
     setTimeout(() => {
       document.getElementById('venue-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -45,6 +47,7 @@ export default function NewVenuePage() {
           </div>
         )}
         <VenueForm
+          key={formKey}
           initial={autofillData ?? {}}
           descriptionIsAi={descriptionIsAi}
           mode="create"

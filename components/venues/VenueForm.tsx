@@ -46,11 +46,23 @@ export default function VenueForm({
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  // Load categories from DB
+  // Load categories from DB, then auto-select if autofill provided a suggestion
   useEffect(() => {
     fetch('/api/categories')
       .then(r => r.json())
-      .then(d => setCategories(d.categories ?? []));
+      .then(d => {
+        const cats: Category[] = d.categories ?? [];
+        setCategories(cats);
+        // Auto-select category from suggested_category_slug (e.g. "fitness")
+        if (!categoryId && af.suggested_category_slug) {
+          const match = cats.find(
+            c => c.name.toLowerCase() === af.suggested_category_slug ||
+                 c.key?.toLowerCase() === af.suggested_category_slug
+          );
+          if (match) setCategoryId(match.id);
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const v = initial as Partial<Venue>;
@@ -61,10 +73,10 @@ export default function VenueForm({
   const [categoryId, setCategoryId] = useState(v.category_id ?? '');
   const [subCategory, setSubCategory] = useState<VenueSubCategory | ''>(v.sub_category ?? '');
 
-  // Feature arrays
-  const [features, setFeatures] = useState<string[]>(v.features ?? []);
+  // Feature arrays (prefer existing venue data, fall back to autofill)
+  const [features, setFeatures] = useState<string[]>(v.features ?? af.features ?? []);
   const [featuresInput, setFeaturesInput] = useState('');
-  const [facilities, setFacilities] = useState<string[]>(v.facilities ?? []);
+  const [facilities, setFacilities] = useState<string[]>(v.facilities ?? af.facilities ?? []);
   const [facilitiesInput, setFacilitiesInput] = useState('');
 
   // Location
@@ -77,11 +89,11 @@ export default function VenueForm({
   // Contact
   const [phone, setPhone] = useState(v.phone ?? af.phone ?? '');
   const [websiteUrl, setWebsiteUrl] = useState(v.website_url ?? af.website_url ?? '');
-  const [instagramUrl, setInstagramUrl] = useState(v.instagram_url ?? '');
-  const [facebookUrl, setFacebookUrl] = useState(v.facebook_url ?? '');
+  const [instagramUrl, setInstagramUrl] = useState(v.instagram_url ?? af.instagram_url ?? '');
+  const [facebookUrl, setFacebookUrl] = useState(v.facebook_url ?? af.facebook_url ?? '');
   const [lineId, setLineId] = useState(v.line_id ?? af.line_id ?? '');
-  const [bookingMethod, setBookingMethod] = useState<BookingMethod | ''>(v.booking_method ?? '');
-  const [bookingUrl, setBookingUrl] = useState(v.booking_url ?? '');
+  const [bookingMethod, setBookingMethod] = useState<BookingMethod | ''>(v.booking_method ?? af.booking_method ?? '');
+  const [bookingUrl, setBookingUrl] = useState(v.booking_url ?? af.booking_url ?? '');
 
   // Operating Info
   const [hours, setHours] = useState<OperatingHours>(v.opening_hours ?? af.opening_hours ?? EMPTY_HOURS);
@@ -90,7 +102,7 @@ export default function VenueForm({
 
   // Content
   const [shortDescription, setShortDescription] = useState(v.short_description ?? af.short_description ?? '');
-  const [longDescription, setLongDescription] = useState(v.long_description ?? '');
+  const [longDescription, setLongDescription] = useState(v.long_description ?? af.long_description ?? '');
   const [heroImageUrl, setHeroImageUrl] = useState(v.hero_image_url ?? af.hero_image_url ?? '');
   const [photoUrls] = useState<string[]>(v.photo_urls ?? af.photo_urls ?? []);
   const [adminNote, setAdminNote] = useState('');

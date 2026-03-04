@@ -4,6 +4,7 @@ import { searchVenueWithGemini } from '@/lib/autofill/gemini';
 import { scrapeWebsite } from '@/lib/autofill/website';
 import { generateDescription } from '@/lib/autofill/claude';
 import { mergeVenueData } from '@/lib/autofill/merge';
+import { searchByName, getPhotoUrl } from '@/lib/autofill/google';
 import { rateLimit } from '@/lib/rate-limit';
 import type { AutofillVenueData } from '@/types/autofill';
 
@@ -55,13 +56,33 @@ export async function POST(req: NextRequest) {
 
   // --- Gemini Search ---
   if (inputType === 'name' || inputType === 'google_maps') {
-    log.push(`[${ts()}] → Calling Gemini 2.0 Flash with Google Search grounding...`);
+    log.push(`[${ts()}] → Calling Gemini 2.5 Flash with Google Search grounding...`);
     try {
       geminiData = await searchVenueWithGemini(input, inputType);
       if (geminiData && Object.keys(geminiData).length > 0) {
         log.push(`[${ts()}] ✓ Gemini returned ${Object.keys(geminiData).length} fields (name, address, hours, etc.)`);
         rawData.gemini = { input, inputType };
         sourcesUsed.push('gemini');
+
+        // Fetch hero image from Google Places (quick — just 1 photo)
+        if (!geminiData.hero_image_url && geminiData.name) {
+          log.push(`[${ts()}] → Fetching hero image from Google Places...`);
+          try {
+            const place = await searchByName(geminiData.name);
+            if (place?.photos?.[0]) {
+              const photoUrl = await getPhotoUrl(place.photos[0].name);
+              if (photoUrl) {
+                geminiData.hero_image_url = photoUrl;
+                if (!geminiData.google_place_id) geminiData.google_place_id = place.id;
+                log.push(`[${ts()}] ✓ Hero image found via Google Places`);
+              }
+            } else {
+              log.push(`[${ts()}] — No photo found on Google Places`);
+            }
+          } catch {
+            log.push(`[${ts()}] ✗ Google Places photo fetch failed (non-blocking)`);
+          }
+        }
 
         // If Gemini found a website, scrape it for extra info + hero image
         if (geminiData.website_url) {
