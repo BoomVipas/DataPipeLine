@@ -83,7 +83,7 @@ function mapPriceLevel(level: string | undefined): 1 | 2 | 3 | 4 | undefined {
   return level ? map[level] : undefined;
 }
 
-async function getPhotoUrl(photoName: string): Promise<string> {
+export async function getPhotoUrl(photoName: string): Promise<string> {
   const url = `${PLACES_API_BASE}/${photoName}/media?maxHeightPx=1200&maxWidthPx=1200&key=${API_KEY}&skipHttpRedirect=true`;
   const res = await fetch(url);
   const data = await res.json();
