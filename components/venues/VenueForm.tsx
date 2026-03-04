@@ -92,7 +92,7 @@ export default function VenueForm({
   const [instagramUrl, setInstagramUrl] = useState(v.instagram_url ?? af.instagram_url ?? '');
   const [facebookUrl, setFacebookUrl] = useState(v.facebook_url ?? af.facebook_url ?? '');
   const [lineId, setLineId] = useState(v.line_id ?? af.line_id ?? '');
-  const [bookingMethod, setBookingMethod] = useState<BookingMethod | ''>(v.booking_method ?? af.booking_method ?? '');
+  const [bookingMethod, setBookingMethod] = useState<BookingMethod | ''>(v.booking_method ?? (af.booking_method as BookingMethod | undefined) ?? '');
   const [bookingUrl, setBookingUrl] = useState(v.booking_url ?? af.booking_url ?? '');
 
   // Operating Info
