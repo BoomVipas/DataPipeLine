@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const next = '/dashboard';
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=oauth`);
@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
     }
   );
 
+  console.log('[auth/callback] exchanging code...');
   const { error } = await supabase.auth.exchangeCodeForSession(code);
+  console.log('[auth/callback] exchange result:', { error: error?.message ?? null });
 
   if (error) {
     return NextResponse.redirect(`${origin}/login?error=oauth`);
@@ -40,15 +42,17 @@ export async function GET(request: NextRequest) {
 
   // Check the signed-in user is a registered admin
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: adminUser } = await supabase
+  console.log('[auth/callback] user email:', user?.email ?? 'null');
+
+  const { data: adminUser, error: adminError } = await supabase
     .from('admin_users')
     .select('id')
     .eq('email', user?.email)
     .single();
+  console.log('[auth/callback] admin lookup:', { found: !!adminUser, error: adminError?.message ?? null });
 
   if (!adminUser) {
     await supabase.auth.signOut();
-    // Redirect to login with not_admin error, copying sign-out cookies
     const rejectedResponse = NextResponse.redirect(`${origin}/login?error=not_admin`);
     successResponse.cookies.getAll().forEach(({ name, value, ...options }) =>
       rejectedResponse.cookies.set(name, value, options)
@@ -56,5 +60,6 @@ export async function GET(request: NextRequest) {
     return rejectedResponse;
   }
 
+  console.log('[auth/callback] admin verified, redirecting to', next);
   return successResponse;
 }
