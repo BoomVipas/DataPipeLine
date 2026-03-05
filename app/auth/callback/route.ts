@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -44,7 +45,14 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   console.log('[auth/callback] user email:', user?.email ?? 'null');
 
-  const { data: adminUser, error: adminError } = await supabase
+  // Use service role to bypass RLS — new admins have user_id=null so
+  // a policy checking auth.uid()=user_id would hide their row entirely.
+  const serviceClient = createServiceClient(
+    process.env.EXPO_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data: adminUser, error: adminError } = await serviceClient
     .from('admin_users')
     .select('id, user_id')
     .eq('email', user?.email)
@@ -62,7 +70,7 @@ export async function GET(request: NextRequest) {
 
   // Populate user_id on first login (rows added via SQL INSERT have null user_id)
   if (user && !(adminUser as { user_id?: string }).user_id) {
-    await supabase
+    await serviceClient
       .from('admin_users')
       .update({ user_id: user.id })
       .eq('id', adminUser.id);
