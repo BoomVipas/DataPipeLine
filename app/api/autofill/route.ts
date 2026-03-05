@@ -4,7 +4,7 @@ import { searchVenueWithGemini } from '@/lib/autofill/gemini';
 import { scrapeWebsite } from '@/lib/autofill/website';
 import { generateDescription } from '@/lib/autofill/claude';
 import { mergeVenueData } from '@/lib/autofill/merge';
-import { searchByName, getPhotoUrl } from '@/lib/autofill/google';
+import { searchByName, downloadPhotosToStorage } from '@/lib/autofill/google';
 import { rateLimit } from '@/lib/rate-limit';
 import type { AutofillVenueData } from '@/types/autofill';
 
@@ -64,20 +64,23 @@ export async function POST(req: NextRequest) {
         rawData.gemini = { input, inputType };
         sourcesUsed.push('gemini');
 
-        // Fetch hero image from Google Places (quick — just 1 photo)
+        // Fetch and permanently store photos from Google Places
         if (!geminiData.hero_image_url && geminiData.name) {
-          log.push(`[${ts()}] → Fetching hero image from Google Places...`);
+          log.push(`[${ts()}] → Fetching photos from Google Places and saving to storage...`);
           try {
             const place = await searchByName(geminiData.name);
-            if (place?.photos?.[0]) {
-              const photoUrl = await getPhotoUrl(place.photos[0].name);
-              if (photoUrl) {
-                geminiData.hero_image_url = photoUrl;
+            if (place?.photos?.length && place.id) {
+              const photoUrls = await downloadPhotosToStorage(place.photos, place.id, supabase, 5);
+              if (photoUrls.length > 0) {
+                geminiData.hero_image_url = photoUrls[0];
+                geminiData.photo_urls = photoUrls;
                 if (!geminiData.google_place_id) geminiData.google_place_id = place.id;
-                log.push(`[${ts()}] ✓ Hero image found via Google Places`);
+                log.push(`[${ts()}] ✓ ${photoUrls.length} photo(s) saved to Supabase Storage`);
+              } else {
+                log.push(`[${ts()}] — Photos found but failed to save to storage`);
               }
             } else {
-              log.push(`[${ts()}] — No photo found on Google Places`);
+              log.push(`[${ts()}] — No photos found on Google Places`);
             }
           } catch {
             log.push(`[${ts()}] ✗ Google Places photo fetch failed (non-blocking)`);
