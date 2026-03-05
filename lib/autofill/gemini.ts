@@ -1,5 +1,6 @@
 import type { AutofillVenueData } from '@/types/autofill';
 import type { OperatingHours } from '@/types/venue';
+import { COMMON_FEATURES, COMMON_FACILITIES } from '@/lib/utils/categories';
 
 const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY!;
 const GEMINI_URL =
@@ -58,6 +59,9 @@ function extractJson(text: string): Record<string, unknown> | null {
 }
 
 function buildPrompt(query: string): string {
+  const featuresAllowed = COMMON_FEATURES.join(', ');
+  const facilitiesAllowed = COMMON_FACILITIES.join(', ');
+
   return `Search for this Bangkok venue: ${query}
 
 Return ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
@@ -86,8 +90,8 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this exact st
   "price_level": <1|2|3|4>,
   "rating": <Google rating 1-5>,
   "rating_count": <integer>,
-  "features": ["feature1", "feature2"],
-  "facilities": ["facility1", "facility2"],
+  "features": ["..."],
+  "facilities": ["..."],
   "short_description": "2-3 sentence description for app venue cards",
   "long_description": "3-5 paragraph detailed description of the venue, its atmosphere, what to expect, and who it's for",
   "suggested_category": "fitness|wellness|casual|nightlife"
@@ -99,8 +103,12 @@ Rules:
 - Times must be 24-hour HH:MM format
 - price_level: 1=budget, 2=moderate, 3=expensive, 4=luxury
 - suggested_category: fitness (gym/yoga/sport/cycling), wellness (spa/meditation/recovery/yoga), casual (cafe/restaurant/entertainment/social), nightlife (bar/club)
-- features: specific things the venue offers or is known for, e.g. ["All Levels Welcome", "Gear Rental", "Drop-in Sessions", "Air Conditioned", "Certified Instructors"]
-- facilities: physical amenities on-site, e.g. ["Parking", "Locker Room", "Showers", "Cafe", "WiFi", "Changing Room"]
+- features: ONLY select from this exact list — copy the strings exactly, no rewording, no invented tags:
+  [${featuresAllowed}]
+  Pick whichever apply to this venue (0–8 tags). Do NOT invent tags outside this list.
+- facilities: ONLY select from this exact list — copy the strings exactly, no rewording:
+  [${facilitiesAllowed}]
+  Pick whichever are physically present at this venue. Do NOT invent tags outside this list.
 - line_id: Thai LINE app ID (often listed on Thai venue websites as "@username"), search in Thai if needed
 - booking_method: "online" if they have an online booking form/app, "phone" if booking by call, "walkin" if no reservation needed, "app" if via a specific app
 - booking_url: the direct URL to book or reserve (e.g. Klook link, venue booking page, or app download link)
@@ -155,10 +163,13 @@ export async function searchVenueWithGemini(
     result.booking_method = data.booking_method;
   }
   if (Array.isArray(data.features) && data.features.every(f => typeof f === 'string')) {
-    result.features = data.features as string[];
+    // Filter to only canonical tags — prevents Gemini from inventing free-form strings
+    const allowed = new Set<string>(COMMON_FEATURES);
+    result.features = (data.features as string[]).filter(f => allowed.has(f));
   }
   if (Array.isArray(data.facilities) && data.facilities.every(f => typeof f === 'string')) {
-    result.facilities = data.facilities as string[];
+    const allowed = new Set<string>(COMMON_FACILITIES);
+    result.facilities = (data.facilities as string[]).filter(f => allowed.has(f));
   }
   if (
     typeof data.suggested_category === 'string' &&

@@ -60,17 +60,30 @@ export const BANGKOK_DISTRICTS = [
   'Wang Thonglang', 'Yan Nawa',
 ];
 
-// Common feature options for auto-suggest in the form
+// Canonical feature tags — shown in the app as badges.
+// IMPORTANT: Gemini is instructed to ONLY use these exact strings.
+// Add new tags here first before using them anywhere.
 export const COMMON_FEATURES = [
-  'Gear Included', 'All Levels', 'Group Friendly', 'Beginner Friendly',
-  'Advanced', 'Expert Only', 'Kids Welcome', 'Pet Friendly', 'Outdoor Area',
-  'Air Conditioned', 'Private Sessions', 'Class Schedule', 'Drop-in Welcome',
-  'Members Only', 'Open 24/7', 'Rooftop', 'Pool', 'Sauna', 'Steam Room',
-  'Live Music', 'DJ', 'Happy Hour', 'Food Available', 'BYOB',
-];
+  // Skill level
+  'Beginner Friendly', 'All Levels Welcome', 'Intermediate', 'Advanced Level', 'Expert Only',
+  // Session format
+  'Drop-in Welcome', 'Class Schedule', 'Private Sessions', 'Group Classes', 'Reservations Required',
+  // Audience
+  'Kids Welcome', 'Pet Friendly', 'Members Only',
+  // Equipment
+  'Gear Included', 'Gear Rental',
+  // Amenities / vibe
+  'Air Conditioned', 'Outdoor Area', 'Rooftop', 'Open 24/7',
+  'Pool', 'Sauna', 'Steam Room', 'Hot Tub',
+  // Instructors
+  'Certified Instructors',
+  // Nightlife / social
+  'Live Music', 'DJ', 'Happy Hour', 'BYOB', 'Food Available', 'Cocktail Bar',
+] as const;
 
+// Canonical facility tags — physical on-site amenities.
 export const COMMON_FACILITIES = [
   'Parking', 'Valet', 'Locker Room', 'Showers', 'Changing Room',
   'WiFi', 'Wheelchair Accessible', 'Elevator', 'Security', 'CCTV',
-  'Card Payment', 'Cash Only',
-];
+  'Card Payment', 'Cash Only', 'Cafe', 'Restrooms',
+] as const;
