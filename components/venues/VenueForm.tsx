@@ -491,54 +491,80 @@ function ChipInput({
   suggestions: string[];
   placeholder?: string;
 }) {
+  const suggestionsSet = new Set(suggestions);
   const filteredSuggestions = inputValue.length > 0
     ? suggestions.filter(s => s.toLowerCase().includes(inputValue.toLowerCase()) && !items.includes(s))
-    : suggestions.filter(s => !items.includes(s)).slice(0, 6);
+    : suggestions.filter(s => !items.includes(s));
+
+  const standardItems = items.filter(i => suggestionsSet.has(i));
+  const customItems = items.filter(i => !suggestionsSet.has(i));
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Active tags */}
       {items.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {items.map(item => (
-            <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-900 text-white text-xs font-medium">
-              {item}
-              <button type="button" onClick={() => onRemove(item)} className="hover:text-gray-300">×</button>
-            </span>
-          ))}
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap gap-1.5">
+            {standardItems.map(item => (
+              <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-900 text-white text-xs font-medium">
+                {item}
+                <button type="button" onClick={() => onRemove(item)} className="ml-0.5 opacity-70 hover:opacity-100 leading-none">×</button>
+              </span>
+            ))}
+            {customItems.map(item => (
+              <span key={item} title="Non-standard tag — consider replacing with one from the list below" className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-xs font-medium">
+                {item}
+                <button type="button" onClick={() => onRemove(item)} className="ml-0.5 opacity-70 hover:opacity-100 leading-none">×</button>
+              </span>
+            ))}
+          </div>
+          {customItems.length > 0 && (
+            <p className="text-xs text-amber-600">
+              {customItems.length} non-standard tag{customItems.length !== 1 ? 's' : ''} highlighted — replace with a tag from the list below for consistency.
+            </p>
+          )}
         </div>
       )}
-      <div className="relative">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={e => onInputChange(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAdd(inputValue); onInputChange(''); } }}
-            placeholder={placeholder}
-            className={inputClass + ' flex-1'}
-          />
-          <button
-            type="button"
-            onClick={() => { onAdd(inputValue); onInputChange(''); }}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Add
-          </button>
-        </div>
-        {filteredSuggestions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-1.5">
+
+      {/* Quick-add grid */}
+      {filteredSuggestions.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+            {inputValue ? 'Matching' : 'Available'} — click to add
+          </p>
+          <div className="flex flex-wrap gap-1.5">
             {filteredSuggestions.map(s => (
               <button
                 key={s}
                 type="button"
                 onClick={() => { onAdd(s); onInputChange(''); }}
-                className="px-2 py-0.5 text-xs rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+                className="px-2.5 py-1 text-xs rounded-full border border-gray-300 bg-white text-gray-600 hover:border-gray-900 hover:text-gray-900 transition-colors"
               >
                 + {s}
               </button>
             ))}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Custom tag input */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={e => onInputChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAdd(inputValue); onInputChange(''); } }}
+          placeholder={placeholder ?? 'Filter tags or type a custom one…'}
+          className={inputClass + ' flex-1 text-xs'}
+        />
+        <button
+          type="button"
+          onClick={() => { onAdd(inputValue); onInputChange(''); }}
+          disabled={!inputValue.trim()}
+          className="px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition-colors"
+        >
+          Add custom
+        </button>
       </div>
     </div>
   );
