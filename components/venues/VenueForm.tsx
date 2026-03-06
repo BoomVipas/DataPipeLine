@@ -488,7 +488,7 @@ function ChipInput({
   onRemove: (v: string) => void;
   inputValue: string;
   onInputChange: (v: string) => void;
-  suggestions: string[];
+  suggestions: readonly string[];
   placeholder?: string;
 }) {
   const suggestionsSet = new Set(suggestions);
