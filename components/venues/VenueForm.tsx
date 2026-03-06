@@ -8,7 +8,10 @@ import type {
   OperatingHours, BookingMethod, Category,
 } from '@/types/venue';
 import type { AutofillVenueData } from '@/types/autofill';
-import { BANGKOK_DISTRICTS, COMMON_FEATURES, COMMON_FACILITIES } from '@/lib/utils/categories';
+import {
+  BANGKOK_DISTRICTS, COMMON_FEATURES, COMMON_FACILITIES,
+  FEATURES_BY_CATEGORY, SUB_CATEGORIES_BY_CATEGORY, SUB_CATEGORY_LABELS,
+} from '@/lib/utils/categories';
 
 const EMPTY_HOURS: OperatingHours = {
   monday: [], tuesday: [], wednesday: [], thursday: [],
@@ -110,6 +113,14 @@ export default function VenueForm({
   const [aiDraft] = useState(descriptionIsAi && !!shortDescription);
 
   const selectedCategory = categories.find(c => c.id === categoryId);
+  // Sub-categories driven by category key — independent of DB sub_category rows
+  const availableSubCategories = selectedCategory?.key
+    ? (SUB_CATEGORIES_BY_CATEGORY[selectedCategory.key] ?? [])
+    : [];
+  // Feature suggestions filtered to the selected category
+  const featureSuggestions = selectedCategory?.key
+    ? (FEATURES_BY_CATEGORY[selectedCategory.key] ?? COMMON_FEATURES)
+    : COMMON_FEATURES;
 
   function addChip(list: string[], setList: (v: string[]) => void, value: string) {
     const t = value.trim();
@@ -221,12 +232,12 @@ export default function VenueForm({
             <select
               value={subCategory}
               onChange={e => setSubCategory(e.target.value as VenueSubCategory | '')}
-              disabled={!categoryId || !selectedCategory}
+              disabled={!categoryId || availableSubCategories.length === 0}
               className={inputClass + ' disabled:bg-gray-50 disabled:text-gray-400'}
             >
               <option value="">Select...</option>
-              {selectedCategory?.sub_categories.map(sub => (
-                <option key={sub.id} value={sub.key}>{sub.name}</option>
+              {availableSubCategories.map(key => (
+                <option key={key} value={key}>{SUB_CATEGORY_LABELS[key]}</option>
               ))}
             </select>
           </Field>
@@ -240,7 +251,7 @@ export default function VenueForm({
             onRemove={item => removeChip(features, setFeatures, item)}
             inputValue={featuresInput}
             onInputChange={setFeaturesInput}
-            suggestions={COMMON_FEATURES}
+            suggestions={featureSuggestions}
             placeholder="Gear Included, All Levels..."
           />
         </Field>
@@ -272,6 +283,19 @@ export default function VenueForm({
             <input type="number" step="any" value={lng} onChange={e => setLng(e.target.value)} className={inputClass} placeholder="100.5690" />
           </Field>
         </div>
+        {lat && lng && (
+          <a
+            href={`https://www.google.com/maps?q=${lat},${lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            View on Google Maps
+          </a>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <Field label="District">
             <select value={district} onChange={e => setDistrict(e.target.value)} className={inputClass}>
