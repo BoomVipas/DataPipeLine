@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import VenueForm from '@/components/venues/VenueForm';
+import EditVenueClient from '@/components/venues/EditVenueClient';
 import type { Venue } from '@/types/venue';
 
 export default async function EditVenuePage({
@@ -48,10 +48,9 @@ export default async function EditVenuePage({
         </h1>
       </div>
 
-      <VenueForm
-        initial={venue as Venue}
+      <EditVenueClient
+        venue={venue as Venue}
         venueId={id}
-        mode="edit"
         adminUserId={adminUser.id}
       />
     </div>

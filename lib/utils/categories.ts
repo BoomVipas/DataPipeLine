@@ -14,6 +14,15 @@ export const SUB_CATEGORY_LABELS: Record<VenueSubCategory, string> = {
   club: 'Club',
 };
 
+// Subcategories per parent category key — source of truth for the form dropdown.
+// Uses VenueSubCategory values directly so it's always consistent with what's saved.
+export const SUB_CATEGORIES_BY_CATEGORY: Record<string, VenueSubCategory[]> = {
+  fitness:   ['indoor', 'outdoor'],
+  wellness:  ['mindful', 'recovery'],
+  casual:    ['games', 'chill', 'wander', 'weird'],
+  nightlife: ['bar', 'club'],
+};
+
 // Maps Google Places types to Wander category slugs
 const GOOGLE_TYPES_MAP: Record<string, string> = {
   gym: 'fitness',
@@ -80,6 +89,34 @@ export const COMMON_FEATURES = [
   // Nightlife / social
   'Live Music', 'DJ', 'Happy Hour', 'BYOB', 'Food Available', 'Cocktail Bar',
 ] as const;
+
+// Feature suggestions shown in the form, filtered by category.
+// Keeps the tag chip input focused on relevant options.
+export const FEATURES_BY_CATEGORY: Record<string, readonly string[]> = {
+  fitness: [
+    'Beginner Friendly', 'All Levels Welcome', 'Intermediate', 'Advanced Level', 'Expert Only',
+    'Drop-in Welcome', 'Class Schedule', 'Private Sessions', 'Group Classes', 'Reservations Required',
+    'Kids Welcome', 'Members Only', 'Gear Included', 'Gear Rental',
+    'Certified Instructors', 'Air Conditioned', 'Outdoor Area', 'Open 24/7',
+    'Pool', 'Sauna', 'Steam Room', 'Hot Tub',
+  ],
+  wellness: [
+    'Beginner Friendly', 'All Levels Welcome', 'Drop-in Welcome', 'Private Sessions',
+    'Group Classes', 'Reservations Required', 'Members Only',
+    'Certified Instructors', 'Air Conditioned', 'Outdoor Area', 'Rooftop',
+    'Pool', 'Sauna', 'Steam Room', 'Hot Tub',
+  ],
+  casual: [
+    'Kids Welcome', 'Pet Friendly', 'Air Conditioned', 'Outdoor Area', 'Rooftop',
+    'Open 24/7', 'Food Available', 'Reservations Required',
+    'Live Music', 'BYOB',
+  ],
+  nightlife: [
+    'Live Music', 'DJ', 'Happy Hour', 'BYOB', 'Food Available', 'Cocktail Bar',
+    'Rooftop', 'Outdoor Area', 'Members Only', 'Reservations Required',
+    'Air Conditioned', 'Open 24/7',
+  ],
+};
 
 // Canonical facility tags — physical on-site amenities.
 export const COMMON_FACILITIES = [
