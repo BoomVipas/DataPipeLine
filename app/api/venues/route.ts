@@ -12,9 +12,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
 
   const status = searchParams.get('status');
-  const category = searchParams.get('category');
+  const categoryId = searchParams.get('category_id');
+  const subCategory = searchParams.get('sub_category');
   const q = searchParams.get('q');
-  const page = Math.max(1, Number(searchParams.get('page') ?? 1));
+  const page = Math.min(Math.max(1, Number(searchParams.get('page') ?? 1)), 1000);
   const pageSize = 20;
   const from = (page - 1) * pageSize;
 
@@ -26,7 +27,8 @@ export async function GET(req: NextRequest) {
     .range(from, from + pageSize - 1);
 
   if (status && status !== 'all') query = query.eq('status', status);
-  if (category) query = query.eq('category', category);
+  if (categoryId) query = query.eq('category_id', categoryId);
+  if (subCategory) query = query.eq('sub_category', subCategory);
   if (q) query = query.ilike('name', `%${q}%`);
 
   const { data, count, error } = await query;
@@ -96,6 +98,12 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
+    if (error.code === '23505') {
+      return NextResponse.json(
+        { error: 'A venue with this name already exists' },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

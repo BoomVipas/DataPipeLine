@@ -83,9 +83,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { status: newStatus } = await req.json() as { status: VenueStatus };
 
+  const VALID_STATUSES: VenueStatus[] = ['draft', 'approved', 'published', 'archived'];
+  if (!VALID_STATUSES.includes(newStatus)) {
+    return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
+  }
+
   const { data: current } = await supabase
     .from('venues')
-    .select('status, activity_id, name, lat, lng, google_place_id, photo_urls')
+    .select('status, activity_id, name, lat, lng, google_place_id, hero_image_url, photo_urls')
     .eq('id', id)
     .single();
 
@@ -135,10 +140,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { error } = await supabase.from('venues').update(update).eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // --- Photo fetch on first approval (draft → approved, no photos yet) ---
+  // --- Photo fetch on approval or publish (any transition, no photos yet) ---
   if (
-    newStatus === 'approved' &&
-    current.status === 'draft' &&
+    (newStatus === 'approved' || newStatus === 'published') &&
     (!current.photo_urls || (current.photo_urls as string[]).length === 0)
   ) {
     try {
@@ -156,7 +160,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (photoUrls.length > 0) {
         const photoUpdate: Record<string, unknown> = { photo_urls: photoUrls };
         // Set hero image only if none exists yet
-        if (!current.photo_urls) photoUpdate.hero_image_url = photoUrls[0];
+        if (!current.hero_image_url) photoUpdate.hero_image_url = photoUrls[0];
         // Cache the place ID to avoid re-searching on future calls
         if (placeId && !current.google_place_id) photoUpdate.google_place_id = placeId;
         await supabase.from('venues').update(photoUpdate).eq('id', id);
