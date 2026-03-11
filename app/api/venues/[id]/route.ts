@@ -100,11 +100,20 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     .single();
   if (!adminUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Soft delete
+  const { data: currentVenue } = await supabase
+    .from('venues')
+    .select('id, activity_id, google_place_id')
+    .eq('id', id)
+    .single();
+
+  if (!currentVenue) return NextResponse.json({ error: 'Venue not found' }, { status: 404 });
+
+  // Soft-delete and archive in admin table.
   const { error } = await supabase
     .from('venues')
     .update({
       is_deleted: true,
+      status: 'archived',
       deleted_at: new Date().toISOString(),
       updated_by: adminUser.id,
     })
@@ -112,11 +121,25 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Activity doesn't have a confirmed is_deleted column in this project;
+  // hide the linked activity by toggling is_verified instead of hard-deleting.
+  if (currentVenue.activity_id) {
+    await supabase
+      .from('activity')
+      .update({ is_verified: false })
+      .eq('id', currentVenue.activity_id);
+  } else if (currentVenue.google_place_id) {
+    await supabase
+      .from('activity')
+      .update({ is_verified: false })
+      .eq('google_place_id', currentVenue.google_place_id);
+  }
+
   await supabase.from('venue_notes').insert({
     venue_id: id,
     author_id: adminUser.id,
     note_type: 'status_change',
-    content: `${adminUser.display_name} deleted this venue.`,
+    content: `${adminUser.display_name} archived and deleted this venue.`,
   });
 
   return NextResponse.json({ success: true });

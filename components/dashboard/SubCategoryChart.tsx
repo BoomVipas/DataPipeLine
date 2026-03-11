@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 export interface SubCatData {
@@ -10,25 +10,18 @@ export interface SubCatData {
   group: string;
 }
 
-// Color per sub-category
+// Color per sub-category (vibrant, readable on dark backgrounds)
 const COLORS: Record<string, string> = {
-  indoor:   '#f97316',
-  outdoor:  '#fb923c',
-  mindful:  '#22c55e',
-  recovery: '#4ade80',
-  games:    '#3b82f6',
-  chill:    '#60a5fa',
-  wander:   '#8b5cf6',
-  weird:    '#a78bfa',
-  bar:      '#ec4899',
-  club:     '#f472b6',
-};
-
-const GROUP_LABEL: Record<string, string> = {
-  fitness:   'Fitness',
-  wellness:  'Wellness',
-  casual:    'Casual',
-  nightlife: 'Nightlife',
+  indoor:   '#FB923C',
+  outdoor:  '#FDBA74',
+  mindful:  '#34D399',
+  recovery: '#6EE7B7',
+  games:    '#60A5FA',
+  chill:    '#93C5FD',
+  wander:   '#A78BFA',
+  weird:    '#C4B5FD',
+  bar:      '#F472B6',
+  club:     '#F9A8D4',
 };
 
 interface Props {
@@ -41,15 +34,16 @@ export default function SubCategoryChart({ data, total }: Props) {
 
   if (chartData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-sm text-gray-400">
+      <div className="flex items-center justify-center h-48 text-sm text-ghost">
         No sub-category data yet
       </div>
     );
   }
 
   return (
-    <div className="relative">
-      <ResponsiveContainer width="100%" height={240}>
+    <div>
+      <div className="relative">
+      <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie
             data={chartData}
@@ -65,20 +59,28 @@ export default function SubCategoryChart({ data, total }: Props) {
             {chartData.map((entry) => (
               <Cell
                 key={entry.name}
-                fill={COLORS[entry.name] ?? '#9ca3af'}
+                fill={COLORS[entry.name] ?? '#524D61'}
               />
             ))}
           </Pie>
           <Tooltip
+            contentStyle={{
+              background: '#1B1B23',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '8px',
+              color: '#EBE7DF',
+              fontSize: '12px',
+            }}
             formatter={(value) => [`${value} venues`]}
           />
         </PieChart>
       </ResponsiveContainer>
 
-      {/* Centre label */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-center">
-        <p className="text-2xl font-bold text-gray-900">{total}</p>
-        <p className="text-xs text-gray-500">venues</p>
+      {/* Centre label — sits inside the arc */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-center pointer-events-none">
+        <p className="text-2xl font-bold font-display text-ink">{total}</p>
+        <p className="text-xs text-ghost">venues</p>
+      </div>
       </div>
 
       {/* Legend grid */}
@@ -86,20 +88,11 @@ export default function SubCategoryChart({ data, total }: Props) {
         {chartData.map(d => (
           <div key={d.name} className="flex items-center gap-2">
             <span
-              className="w-2.5 h-2.5 rounded-full shrink-0"
-              style={{ backgroundColor: COLORS[d.name] ?? '#9ca3af' }}
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: COLORS[d.name] ?? '#524D61' }}
             />
-            <span className="text-xs text-gray-600 capitalize">{d.name}</span>
-            <span className="text-xs font-medium text-gray-900 ml-auto">{d.value}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Group legend */}
-      <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-gray-100">
-        {Object.entries(GROUP_LABEL).map(([key, label]) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500">{label}</span>
+            <span className="text-xs text-dim capitalize">{d.name}</span>
+            <span className="text-xs font-medium text-ink ml-auto">{d.value}</span>
           </div>
         ))}
       </div>

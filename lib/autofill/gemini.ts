@@ -1,10 +1,48 @@
 import type { AutofillVenueData } from '@/types/autofill';
 import type { OperatingHours } from '@/types/venue';
+import type { VenueSubCategory } from '@/types/venue';
 import { COMMON_FEATURES, COMMON_FACILITIES } from '@/lib/utils/categories';
 
 const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY!;
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+const FEATURE_DEDUP_RULES: Array<{ trigger: string; remove: string[] }> = [
+  {
+    trigger: 'All Levels Welcome',
+    remove: ['Beginner Friendly', 'Intermediate', 'Advanced Level', 'Expert Only'],
+  },
+];
+
+const ALWAYS_EXCLUDE_FEATURES = ['Restrooms'];
+const ALWAYS_EXCLUDE_FACILITIES = ['Restrooms'];
+
+const CATEGORY_SLUGS = ['fitness', 'wellness', 'casual', 'nightlife'] as const;
+type CategorySlug = (typeof CATEGORY_SLUGS)[number];
+
+const SUB_CATEGORIES_BY_CATEGORY: Record<CategorySlug, VenueSubCategory[]> = {
+  fitness: ['indoor', 'outdoor'],
+  wellness: ['mindful', 'recovery'],
+  casual: ['games', 'chill', 'wander', 'weird'],
+  nightlife: ['bar', 'club'],
+};
+
+const SUB_CATEGORY_ALIASES: Record<string, VenueSubCategory> = {
+  indoor: 'indoor',
+  outdoor: 'outdoor',
+  mindful: 'mindful',
+  yoga: 'mindful',
+  recovery: 'recovery',
+  games: 'games',
+  game: 'games',
+  chill: 'chill',
+  wander: 'wander',
+  weird: 'weird',
+  bar: 'bar',
+  club: 'club',
+  night_club: 'club',
+  nightclub: 'club',
+};
 
 interface GeminiApiPart {
   text?: string;
@@ -94,7 +132,8 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this exact st
   "facilities": ["..."],
   "short_description": "2-3 sentence description for app venue cards",
   "long_description": "3-5 paragraph detailed description of the venue, its atmosphere, what to expect, and who it's for",
-  "suggested_category": "fitness|wellness|casual|nightlife"
+  "suggested_category": "fitness|wellness|casual|nightlife",
+  "suggested_sub_category": "indoor|outdoor|mindful|recovery|games|chill|wander|weird|bar|club"
 }
 
 Rules:
@@ -103,16 +142,31 @@ Rules:
 - Times must be 24-hour HH:MM format
 - price_level: 1=budget, 2=moderate, 3=expensive, 4=luxury
 - suggested_category: fitness (gym/yoga/sport/cycling), wellness (spa/meditation/recovery/yoga), casual (cafe/restaurant/entertainment/social), nightlife (bar/club)
-- features: ONLY select from this exact list — copy the strings exactly, no rewording, no invented tags:
-  [${featuresAllowed}]
-  Pick whichever apply to this venue (0–8 tags). Do NOT invent tags outside this list.
-- facilities: ONLY select from this exact list — copy the strings exactly, no rewording:
-  [${facilitiesAllowed}]
-  Pick whichever are physically present at this venue. Do NOT invent tags outside this list.
+- suggested_sub_category must match suggested_category:
+  - fitness: indoor|outdoor
+  - wellness: mindful|recovery
+  - casual: games|chill|wander|weird
+  - nightlife: bar|club
+- Use null for suggested_sub_category if uncertain
+- Features (max 5, choose ONLY the most distinctive and specific):
+  - Pick from: ${featuresAllowed}
+  - IMPORTANT: If you include "All Levels Welcome", do NOT also include "Beginner Friendly", "Intermediate", "Advanced Level", or "Expert Only" — they are redundant
+  - Do NOT include "Restrooms" — this is assumed for all venues
+  - Prefer specific, venue-defining features over generic ones
+  - Return 0 to 5 items
+- Facilities (max 4, choose ONLY the most notable):
+  - Pick from: ${facilitiesAllowed}
+  - Do NOT include "Restrooms" — this is assumed for all venues
+  - Return 0 to 4 items
 - line_id: Thai LINE app ID (often listed on Thai venue websites as "@username"), search in Thai if needed
 - booking_method: "online" if they have an online booking form/app, "phone" if booking by call, "walkin" if no reservation needed, "app" if via a specific app
 - booking_url: the direct URL to book or reserve (e.g. Klook link, venue booking page, or app download link)
 - For split hours (e.g. lunch break), add a second slot to that day's array`;
+}
+
+function normalizeSubCategory(value: string): VenueSubCategory | undefined {
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return SUB_CATEGORY_ALIASES[normalized];
 }
 
 /**
@@ -165,17 +219,43 @@ export async function searchVenueWithGemini(
   if (Array.isArray(data.features) && data.features.every(f => typeof f === 'string')) {
     // Filter to only canonical tags — prevents Gemini from inventing free-form strings
     const allowed = new Set<string>(COMMON_FEATURES);
-    result.features = (data.features as string[]).filter(f => allowed.has(f));
+    const filteredFeatures = (data.features as string[]).filter(f => allowed.has(f));
+
+    let dedupedFeatures = Array.from(new Set(filteredFeatures))
+      .filter(f => !ALWAYS_EXCLUDE_FEATURES.includes(f));
+
+    for (const rule of FEATURE_DEDUP_RULES) {
+      if (dedupedFeatures.includes(rule.trigger)) {
+        dedupedFeatures = dedupedFeatures.filter(f => !rule.remove.includes(f));
+      }
+    }
+
+    result.features = dedupedFeatures.slice(0, 5);
   }
   if (Array.isArray(data.facilities) && data.facilities.every(f => typeof f === 'string')) {
     const allowed = new Set<string>(COMMON_FACILITIES);
-    result.facilities = (data.facilities as string[]).filter(f => allowed.has(f));
+    const filteredFacilities = (data.facilities as string[]).filter(f => allowed.has(f));
+    const dedupedFacilities = Array.from(new Set(filteredFacilities))
+      .filter(f => !ALWAYS_EXCLUDE_FACILITIES.includes(f));
+
+    result.facilities = dedupedFacilities.slice(0, 4);
   }
-  if (
-    typeof data.suggested_category === 'string' &&
-    ['fitness', 'wellness', 'casual', 'nightlife'].includes(data.suggested_category)
-  ) {
-    result.suggested_category_slug = data.suggested_category;
+  let suggestedCategory: CategorySlug | undefined;
+  if (typeof data.suggested_category === 'string') {
+    const category = data.suggested_category.toLowerCase() as CategorySlug;
+    if (CATEGORY_SLUGS.includes(category)) {
+      suggestedCategory = category;
+      result.suggested_category_slug = category;
+    }
+  }
+  if (typeof data.suggested_sub_category === 'string') {
+    const normalizedSubCategory = normalizeSubCategory(data.suggested_sub_category);
+    if (
+      normalizedSubCategory &&
+      (!suggestedCategory || SUB_CATEGORIES_BY_CATEGORY[suggestedCategory].includes(normalizedSubCategory))
+    ) {
+      result.suggested_sub_category = normalizedSubCategory;
+    }
   }
   if (data.opening_hours && typeof data.opening_hours === 'object' && !Array.isArray(data.opening_hours)) {
     result.opening_hours = data.opening_hours as OperatingHours;

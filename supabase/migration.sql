@@ -134,11 +134,31 @@ CREATE INDEX IF NOT EXISTS idx_venue_notes_venue ON venue_notes(venue_id);
 CREATE INDEX IF NOT EXISTS idx_venue_notes_created ON venue_notes(created_at DESC);
 
 -- ============================================================
+-- Phase: Photo Deduplication (added 2026-03-11)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS venue_photos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  venue_id UUID NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+  google_photo_name TEXT,
+  storage_path TEXT NOT NULL,
+  public_url TEXT NOT NULL,
+  is_hero BOOLEAN DEFAULT false,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_photos_venue_id ON venue_photos(venue_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_venue_photos_google_name
+  ON venue_photos(google_photo_name)
+  WHERE google_photo_name IS NOT NULL;
+
+-- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE venues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE venue_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE venue_photos ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Admin read own record"
   ON admin_users FOR SELECT
@@ -151,6 +171,11 @@ CREATE POLICY "Admin full access on venues"
 
 CREATE POLICY "Admin full access on venue_notes"
   ON venue_notes FOR ALL
+  USING (auth.uid() IN (SELECT user_id FROM admin_users))
+  WITH CHECK (auth.uid() IN (SELECT user_id FROM admin_users));
+
+CREATE POLICY "Admin full access on venue_photos"
+  ON venue_photos FOR ALL
   USING (auth.uid() IN (SELECT user_id FROM admin_users))
   WITH CHECK (auth.uid() IN (SELECT user_id FROM admin_users));
 

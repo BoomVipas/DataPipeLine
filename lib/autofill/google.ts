@@ -83,13 +83,6 @@ function mapPriceLevel(level: string | undefined): 1 | 2 | 3 | 4 | undefined {
   return level ? map[level] : undefined;
 }
 
-export async function getPhotoUrl(photoName: string): Promise<string> {
-  const url = `${PLACES_API_BASE}/${photoName}/media?maxHeightPx=1200&maxWidthPx=1200&key=${API_KEY}&skipHttpRedirect=true`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.photoUri ?? '';
-}
-
 export async function searchByName(name: string): Promise<PlaceResult | null> {
   const res = await fetch(`${PLACES_API_BASE}/places:searchText`, {
     method: 'POST',
@@ -159,55 +152,12 @@ export function extractPlaceIdFromUrl(url: string): string | null {
   return null;
 }
 
-/** Fetch up to maxPhotos Google Places photos and return Supabase Storage URLs */
-export async function downloadPhotosToStorage(
-  photos: PlacePhoto[],
-  placeId: string,
-  supabase: ReturnType<typeof import('@/lib/supabase/server').createClient> extends Promise<infer T> ? T : never,
-  maxPhotos = 5
-): Promise<string[]> {
-  const urls: string[] = [];
-  const toProcess = photos.slice(0, maxPhotos);
-
-  for (let i = 0; i < toProcess.length; i++) {
-    try {
-      const photoUrl = await getPhotoUrl(toProcess[i].name);
-      if (!photoUrl) continue;
-
-      const response = await fetch(photoUrl);
-      if (!response.ok) continue;
-
-      const contentType = response.headers.get('content-type') ?? 'image/jpeg';
-      const ext = contentType.includes('png') ? 'png' : 'jpg';
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const path = `${placeId}/${i}.${ext}`;
-
-      const { error } = await supabase.storage
-        .from('venue-photos')
-        .upload(path, buffer, { contentType, upsert: true });
-
-      if (error) continue;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('venue-photos')
-        .getPublicUrl(path);
-
-      urls.push(publicUrl);
-    } catch {
-      // Skip failed photos
-    }
-  }
-
-  return urls;
-}
-
 export async function placeToAutofillData(
   place: PlaceResult,
-  supabase: ReturnType<typeof import('@/lib/supabase/server').createClient> extends Promise<infer T> ? T : never
+  _supabase: ReturnType<typeof import('@/lib/supabase/server').createClient> extends Promise<infer T> ? T : never
 ): Promise<Partial<AutofillVenueData>> {
-  const photoUrls = place.photos
-    ? await downloadPhotosToStorage(place.photos, place.id, supabase)
-    : [];
+  // Photo storage is handled by lib/autofill/photos.ts (ensurePhotosStored).
+  const photoUrls: string[] = [];
 
   return {
     name: place.displayName?.text,

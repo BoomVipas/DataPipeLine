@@ -197,3 +197,14 @@ export interface VenueNote {
   created_at: string;
   author?: Pick<AdminUser, 'display_name' | 'email'>;
 }
+
+export interface VenuePhoto {
+  id: string;
+  venue_id: string;
+  google_photo_name: string | null;
+  storage_path: string;
+  public_url: string;
+  is_hero: boolean;
+  display_order: number;
+  created_at: string;
+}

@@ -18,17 +18,30 @@ export default function Header({ adminUser }: HeaderProps) {
     router.refresh();
   }
 
+  const initials = adminUser?.display_name
+    ?.split(' ')
+    .map(n => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() ?? '?';
+
   return (
-    <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-end px-6 shrink-0">
-      <div className="flex items-center gap-3">
+    <header className="h-14 border-b border-white/[0.07] bg-panel flex items-center justify-end px-6 shrink-0">
+      <div className="flex items-center gap-4">
         {adminUser && (
-          <span className="text-sm text-gray-600">
-            {adminUser.display_name}
-          </span>
+          <>
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-flame/[0.15] border border-flame/30 flex items-center justify-center shrink-0">
+                <span className="text-[11px] font-bold text-flame font-display">{initials}</span>
+              </div>
+              <span className="text-sm text-dim font-medium">{adminUser.display_name}</span>
+            </div>
+            <div className="w-px h-4 bg-white/[0.1]" />
+          </>
         )}
         <button
           onClick={handleSignOut}
-          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+          className="text-xs text-ghost hover:text-ink transition-colors tracking-widest uppercase font-medium"
         >
           Sign out
         </button>

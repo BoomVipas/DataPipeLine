@@ -4,7 +4,8 @@ import { searchVenueWithGemini } from '@/lib/autofill/gemini';
 import { scrapeWebsite } from '@/lib/autofill/website';
 import { generateDescription } from '@/lib/autofill/claude';
 import { mergeVenueData } from '@/lib/autofill/merge';
-import { searchByName, downloadPhotosToStorage } from '@/lib/autofill/google';
+import { searchByName } from '@/lib/autofill/google';
+import { ensurePhotosStored, getPhotoUri } from '@/lib/autofill/photos';
 import { rateLimit } from '@/lib/rate-limit';
 import type { AutofillVenueData } from '@/types/autofill';
 
@@ -18,6 +19,10 @@ function ts() {
   return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export async function POST(req: NextRequest) {
   const log: string[] = [];
 
@@ -27,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
   // Rate limit: 15 autofill requests per minute per user (Gemini API cost control)
-  if (!rateLimit(user.id, 15, 60_000)) {
+  if (!rateLimit(user.id, 120, 60_000)) {
     return NextResponse.json(
       { success: false, error: 'Too many requests. Please wait a moment.' },
       { status: 429 },
@@ -40,6 +45,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const input: string = body.input?.trim() ?? '';
+  const venueIdFromBody: string | null = typeof body.venue_id === 'string' && isUuid(body.venue_id.trim())
+    ? body.venue_id.trim()
+    : null;
 
   if (!input) {
     return NextResponse.json({ success: false, error: 'Input is required' }, { status: 400 });
@@ -69,15 +77,29 @@ export async function POST(req: NextRequest) {
           log.push(`[${ts()}] → Fetching photos from Google Places and saving to storage...`);
           try {
             const place = await searchByName(geminiData.name);
-            if (place?.photos?.length && place.id) {
-              const photoUrls = await downloadPhotosToStorage(place.photos, place.id, supabase, 5);
+            if (place?.id && !geminiData.google_place_id) {
+              geminiData.google_place_id = place.id;
+            }
+
+            // Permanent storage now requires a real venues.id for FK in venue_photos.
+            // New-venue prefill requests do not have that ID yet, so we only store when provided.
+            if (place?.photos?.length && venueIdFromBody) {
+              const photoUrls = await ensurePhotosStored(place.photos, venueIdFromBody, supabase, 5);
               if (photoUrls.length > 0) {
                 geminiData.hero_image_url = photoUrls[0];
                 geminiData.photo_urls = photoUrls;
-                if (!geminiData.google_place_id) geminiData.google_place_id = place.id;
                 log.push(`[${ts()}] ✓ ${photoUrls.length} photo(s) saved to Supabase Storage`);
               } else {
                 log.push(`[${ts()}] — Photos found but failed to save to storage`);
+              }
+            } else if (place?.photos?.length) {
+              log.push(`[${ts()}] — Skipping permanent photo storage (venue_id unavailable during prefill)`);
+              // Still fetch a temp signed URL for card preview in the batch tool
+              try {
+                const previewUrl = await getPhotoUri(place.photos[0].name);
+                if (previewUrl) geminiData.preview_photo_url = previewUrl;
+              } catch {
+                // non-blocking
               }
             } else {
               log.push(`[${ts()}] — No photos found on Google Places`);

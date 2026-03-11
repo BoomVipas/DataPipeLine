@@ -40,8 +40,8 @@ function LoginForm() {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3">
+          <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
 
@@ -49,10 +49,10 @@ function LoginForm() {
         type="button"
         onClick={handleGoogleLogin}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-raised border border-white/[0.1] text-ink text-sm font-medium rounded-xl hover:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-flame/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
       >
         {loading ? (
-          <svg className="w-4 h-4 animate-spin text-gray-500" fill="none" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 animate-spin text-dim" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
@@ -64,7 +64,7 @@ function LoginForm() {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
         )}
-        {loading ? 'Redirecting to Google...' : 'Continue with Google'}
+        {loading ? 'Redirecting to Google…' : 'Continue with Google'}
       </button>
     </div>
   );
@@ -72,20 +72,41 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Wander Admin</h1>
-          <p className="mt-1 text-sm text-gray-500">Venue Curation Pipeline</p>
+    <div className="min-h-screen flex items-center justify-center bg-canvas px-4">
+      {/* Background grid */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)`,
+          backgroundSize: '64px 64px',
+        }}
+      />
+      {/* Glow */}
+      <div
+        className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse at center, rgba(255,85,51,0.08) 0%, transparent 70%)' }}
+      />
+
+      <div className="relative w-full max-w-xs">
+        {/* Brand mark */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-flame mb-4">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold font-display tracking-tight text-ink">WANDER</h1>
+          <p className="mt-1 text-xs text-ghost uppercase tracking-widest">Venue Ops Portal</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <Suspense fallback={<div className="h-14 animate-pulse bg-gray-50 rounded-lg" />}>
+        <div className="bg-card rounded-2xl border border-white/[0.07] p-6">
+          <Suspense fallback={<div className="h-12 animate-pulse bg-raised rounded-xl" />}>
             <LoginForm />
           </Suspense>
         </div>
 
-        <p className="mt-4 text-center text-xs text-gray-400">
+        <p className="mt-4 text-center text-xs text-ghost">
           Admin access only — invite required
         </p>
       </div>

@@ -51,6 +51,9 @@ export interface AutofillVenueData {
   suggested_category_slug?: string;
   suggested_sub_category?: VenueSubCategory;
 
+  // Temporary signed Google URL for card preview (not stored, expires in hours)
+  preview_photo_url?: string;
+
   sources_used: string[];
   description_is_ai?: boolean;
 }

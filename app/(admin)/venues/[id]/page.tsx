@@ -6,8 +6,9 @@ import VenueStatusActions from '@/components/venues/VenueStatusActions';
 import VenueNotes from '@/components/venues/VenueNotes';
 import VenueMobilePreview from '@/components/venues/VenueMobilePreview';
 import type { Venue, VenueNote } from '@/types/venue';
-import { SUB_CATEGORY_LABELS } from '@/lib/utils/categories';
+import { SUB_CATEGORY_LABELS, CATEGORY_ICONS, SUB_CATEGORY_ICONS } from '@/lib/utils/categories';
 import QuickFillPanel from '@/components/venues/QuickFillPanel';
+import DeleteVenueButton from '@/components/venues/DeleteVenueButton';
 
 export default async function VenueDetailPage({
   params,
@@ -86,6 +87,7 @@ export default async function VenueDetailPage({
           >
             Edit
           </Link>
+          <DeleteVenueButton venueId={id} venueName={v.name} />
         </div>
       </div>
 
@@ -239,6 +241,41 @@ export default async function VenueDetailPage({
             {v.booking_method && <InfoRow label="Booking" value={v.booking_method.replace('_', ' ')} />}
             {v.rating && <InfoRow label="Rating" value={`${v.rating}★ (${v.rating_count?.toLocaleString()} reviews)`} />}
           </InfoCard>
+
+          {(v.category || v.sub_category) && (
+            <InfoCard title="Category">
+              <div className="flex gap-5 pt-1">
+                {v.category && (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center overflow-hidden">
+                      {CATEGORY_ICONS[v.category.key] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={CATEGORY_ICONS[v.category.key]} alt={v.category.name} className="w-9 h-9 object-contain" />
+                      ) : (
+                        <span className="text-xl">📍</span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-700">{v.category.name}</span>
+                    <span className="text-[9px] text-gray-400 uppercase tracking-wide">Category</span>
+                  </div>
+                )}
+                {v.sub_category && (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center overflow-hidden">
+                      {SUB_CATEGORY_ICONS[v.sub_category] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={SUB_CATEGORY_ICONS[v.sub_category]} alt={v.sub_category} className="w-9 h-9 object-contain" />
+                      ) : (
+                        <span className="text-xl">🏷</span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-700">{SUB_CATEGORY_LABELS[v.sub_category as keyof typeof SUB_CATEGORY_LABELS] ?? v.sub_category}</span>
+                    <span className="text-[9px] text-gray-400 uppercase tracking-wide">Type</span>
+                  </div>
+                )}
+              </div>
+            </InfoCard>
+          )}
 
           <InfoCard title="Pipeline">
             <InfoRow label="Status" value={<Badge variant="status" status={v.status} />} />

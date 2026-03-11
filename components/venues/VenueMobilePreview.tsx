@@ -1,4 +1,5 @@
 import type { Venue } from '@/types/venue';
+import { CATEGORY_ICONS, SUB_CATEGORY_ICONS, SUB_CATEGORY_LABELS } from '@/lib/utils/categories';
 
 // Rotating pill colors for feature badges
 const PILL_COLORS = [
@@ -217,6 +218,26 @@ export default function VenueMobilePreview({ venue }: { venue: Venue }) {
               {venue.name || <span className="text-gray-400 italic">Venue name</span>}
             </h3>
 
+            {/* Category + Subcategory row */}
+            {(venue.category || venue.sub_category) && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {venue.category && CATEGORY_ICONS[venue.category.key] && (
+                  <div className="flex items-center gap-1 bg-white rounded-full px-2 py-0.5 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={CATEGORY_ICONS[venue.category.key]} alt="" className="w-3.5 h-3.5 object-contain" />
+                    <span className="text-[9px] font-semibold text-gray-700">{venue.category.name}</span>
+                  </div>
+                )}
+                {venue.sub_category && SUB_CATEGORY_ICONS[venue.sub_category] && (
+                  <div className="flex items-center gap-1 bg-white rounded-full px-2 py-0.5 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={SUB_CATEGORY_ICONS[venue.sub_category]} alt="" className="w-3.5 h-3.5 object-contain" />
+                    <span className="text-[9px] font-semibold text-gray-700">{SUB_CATEGORY_LABELS[venue.sub_category as keyof typeof SUB_CATEGORY_LABELS] ?? venue.sub_category}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Feature pill badges */}
             {(venue.features?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -314,6 +335,13 @@ export default function VenueMobilePreview({ venue }: { venue: Venue }) {
               <button className="mt-1.5 w-full py-2 border border-amber-500 text-amber-600 text-[9px] font-semibold rounded-xl">
                 ⊕ Host Event Here
               </button>
+            </div>
+
+            {/* Wander branding */}
+            <div className="flex items-center justify-center gap-1.5 py-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/Logo.png" alt="Wander" className="w-5 h-5 object-contain opacity-50" />
+              <span className="text-[8px] font-bold text-gray-400 tracking-widest uppercase">Wander</span>
             </div>
 
             {/* CTA buttons */}

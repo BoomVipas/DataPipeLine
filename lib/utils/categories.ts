@@ -118,6 +118,24 @@ export const FEATURES_BY_CATEGORY: Record<string, readonly string[]> = {
   ],
 };
 
+export const CATEGORY_ICONS: Record<string, string> = {
+  fitness:   '/icons/activity/Fitness.png',
+  wellness:  '/icons/activity/Wellness.png',
+  casual:    '/icons/activity/Casual.png',
+  nightlife: '/icons/activity/Night_Life.png',
+};
+
+export const SUB_CATEGORY_ICONS: Record<string, string> = {
+  indoor:   '/icons/activity/indoor.png',
+  outdoor:  '/icons/activity/outdoor.png',
+  mindful:  '/icons/activity/Meditate.png',
+  recovery: '/icons/activity/Recovery.png',
+  games:    '/icons/activity/Game.png',
+  chill:    '/icons/activity/Chill.png',
+  bar:      '/icons/activity/Bar.png',
+  club:     '/icons/activity/club.png',
+};
+
 // Canonical facility tags — physical on-site amenities.
 export const COMMON_FACILITIES = [
   'Parking', 'Valet', 'Locker Room', 'Showers', 'Changing Room',

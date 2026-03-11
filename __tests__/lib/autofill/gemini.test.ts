@@ -54,6 +54,7 @@ const validVenueJson = JSON.stringify({
   short_description: 'A serene yoga studio in the heart of Bangkok.',
   long_description: 'Flow Space Yoga offers classes for all levels...',
   suggested_category: 'wellness',
+  suggested_sub_category: 'mindful',
 });
 
 describe('searchVenueWithGemini', () => {
@@ -76,6 +77,7 @@ describe('searchVenueWithGemini', () => {
     expect(result!.price_level).toBe(2);
     expect(result!.features).toEqual(['All Levels Welcome', 'Air Conditioned']);
     expect(result!.suggested_category_slug).toBe('wellness');
+    expect(result!.suggested_sub_category).toBe('mindful');
   });
 
   it('strips markdown code fences and still parses the JSON', async () => {
@@ -181,6 +183,47 @@ describe('searchVenueWithGemini', () => {
       const result = await searchVenueWithGemini('Venue', 'name');
       expect(result!.suggested_category_slug).toBe(cat);
     }
+  });
+
+  it('normalizes suggested_sub_category aliases (e.g. "Yoga" -> "mindful")', async () => {
+    const withAlias = JSON.stringify({
+      ...JSON.parse(validVenueJson),
+      suggested_category: 'wellness',
+      suggested_sub_category: 'Yoga',
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(geminiResponse(withAlias) as never);
+
+    const { searchVenueWithGemini } = await import('@/lib/autofill/gemini');
+    const result = await searchVenueWithGemini('Flow Space Yoga', 'name');
+
+    expect(result!.suggested_sub_category).toBe('mindful');
+  });
+
+  it('drops suggested_sub_category when it does not match suggested_category', async () => {
+    const mismatched = JSON.stringify({
+      ...JSON.parse(validVenueJson),
+      suggested_category: 'wellness',
+      suggested_sub_category: 'club',
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(geminiResponse(mismatched) as never);
+
+    const { searchVenueWithGemini } = await import('@/lib/autofill/gemini');
+    const result = await searchVenueWithGemini('Flow Space Yoga', 'name');
+
+    expect(result!.suggested_sub_category).toBeUndefined();
+  });
+
+  it('drops invalid suggested_sub_category values', async () => {
+    const invalid = JSON.stringify({
+      ...JSON.parse(validVenueJson),
+      suggested_sub_category: 'unknown_type',
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(geminiResponse(invalid) as never);
+
+    const { searchVenueWithGemini } = await import('@/lib/autofill/gemini');
+    const result = await searchVenueWithGemini('Flow Space Yoga', 'name');
+
+    expect(result!.suggested_sub_category).toBeUndefined();
   });
 
   it('drops an invalid booking_method value', async () => {

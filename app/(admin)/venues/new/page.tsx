@@ -22,6 +22,12 @@ export default function NewVenuePage() {
     }, 100);
   }
 
+  function handleClear() {
+    setAutofillData(null);
+    setDescriptionIsAi(false);
+    setFormKey(k => k + 1);
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -37,7 +43,23 @@ export default function NewVenuePage() {
       </div>
 
       {/* Phase 1: Auto-fill input */}
-      <AutofillInput onResult={handleAutofillResult} />
+      <div className="space-y-2">
+        <AutofillInput onResult={handleAutofillResult} />
+        {autofillData && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleClear}
+              className="flex items-center gap-1.5 text-xs text-ghost hover:text-flame transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear autofill
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Phase 2: Form (shown immediately, pre-filled when autofill runs) */}
       <div id="venue-form">

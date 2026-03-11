@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import HoursEditor from './HoursEditor';
 import type {
@@ -30,6 +30,35 @@ const BOOKING_METHODS: { value: BookingMethod; label: string }[] = [
   { value: 'wander', label: 'Wander' },
 ];
 
+const SUB_CATEGORY_TO_CATEGORY_KEY: Record<VenueSubCategory, string> = {
+  indoor: 'fitness',
+  outdoor: 'fitness',
+  mindful: 'wellness',
+  recovery: 'wellness',
+  games: 'casual',
+  chill: 'casual',
+  wander: 'casual',
+  weird: 'casual',
+  bar: 'nightlife',
+  club: 'nightlife',
+};
+
+function normalizeCategoryValue(value?: string | null): string | undefined {
+  const normalized = value?.trim().toLowerCase().replace(/[\s_-]+/g, '');
+  return normalized && normalized.length > 0 ? normalized : undefined;
+}
+
+function findCategoryBySlug(categories: Category[], slug?: string | null): Category | undefined {
+  const normalizedSlug = normalizeCategoryValue(slug);
+  if (!normalizedSlug) return undefined;
+
+  return categories.find(cat => {
+    const normalizedKey = normalizeCategoryValue(cat.key);
+    const normalizedName = normalizeCategoryValue(cat.name);
+    return normalizedKey === normalizedSlug || normalizedName === normalizedSlug;
+  });
+}
+
 interface VenueFormProps {
   initial?: Partial<Venue> | AutofillVenueData;
   venueId?: string;
@@ -48,26 +77,8 @@ export default function VenueForm({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-
-  // Load categories from DB, then auto-select if autofill provided a suggestion
-  useEffect(() => {
-    fetch('/api/categories')
-      .then(r => r.json())
-      .then(d => {
-        const cats: Category[] = d.categories ?? [];
-        setCategories(cats);
-        // Auto-select category from suggested_category_slug (e.g. "fitness")
-        if (!categoryId && af.suggested_category_slug) {
-          const match = cats.find(
-            c => c.name.toLowerCase() === af.suggested_category_slug ||
-                 c.key?.toLowerCase() === af.suggested_category_slug
-          );
-          if (match) setCategoryId(match.id);
-        }
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  const [isAiClassifying, setIsAiClassifying] = useState(false);
+  const aiClassificationAttemptedRef = useRef(false);
   const v = initial as Partial<Venue>;
   const af = initial as AutofillVenueData;
 
@@ -75,6 +86,116 @@ export default function VenueForm({
   const [name, setName] = useState(v.name ?? '');
   const [categoryId, setCategoryId] = useState(v.category_id ?? '');
   const [subCategory, setSubCategory] = useState<VenueSubCategory | ''>(v.sub_category ?? '');
+
+  // Load categories from DB
+  useEffect(() => {
+    fetch('/api/categories')
+      .then(r => r.json())
+      .then(d => {
+        const cats: Category[] = d.categories ?? [];
+        setCategories(cats);
+      });
+  }, []);
+
+  // Some older/batch-created rows may store a non-top-level category id.
+  // If the current value is not in level-1 category options, treat it as missing.
+  useEffect(() => {
+    if (categories.length === 0 || !categoryId) return;
+    const isKnownCategoryId = categories.some(cat => cat.id === categoryId);
+    if (!isKnownCategoryId) {
+      setCategoryId('');
+    }
+  }, [categories, categoryId]);
+
+  // Auto-select category from suggested_category_slug or inferred sub-category
+  useEffect(() => {
+    if (categories.length === 0 || categoryId) return;
+
+    const suggestedCategory = normalizeCategoryValue(af.suggested_category_slug);
+    const inferredSubCategory = af.suggested_sub_category ?? (subCategory || undefined);
+    const inferredFromSubCategory = inferredSubCategory
+      ? SUB_CATEGORY_TO_CATEGORY_KEY[inferredSubCategory]
+      : undefined;
+    const targetCategory = suggestedCategory ?? inferredFromSubCategory;
+    if (!targetCategory) return;
+
+    const match = findCategoryBySlug(categories, targetCategory);
+
+    if (match) {
+      setCategoryId(match.id);
+    }
+  }, [af.suggested_category_slug, af.suggested_sub_category, categories, categoryId, subCategory]);
+
+  // Auto-select sub-category once category options are available
+  useEffect(() => {
+    if (categories.length === 0 || !categoryId || subCategory) return;
+    if (!af.suggested_sub_category) return;
+
+    const selected = categories.find(cat => cat.id === categoryId);
+    if (!selected) return;
+
+    const isValidForCategory = selected.sub_categories.some(sub => sub.key === af.suggested_sub_category);
+    if (isValidForCategory) {
+      setSubCategory(af.suggested_sub_category);
+    }
+  }, [af.suggested_sub_category, categories, categoryId, subCategory]);
+
+  // Edit fallback: if category/sub-category are still missing, ask AI to classify by venue name.
+  useEffect(() => {
+    if (mode !== 'edit') return;
+    if (categories.length === 0) return;
+    if (aiClassificationAttemptedRef.current) return;
+
+    const hasValidCategory = !!categoryId && categories.some(cat => cat.id === categoryId);
+    const inferredFromExistingSub = subCategory
+      ? findCategoryBySlug(categories, SUB_CATEGORY_TO_CATEGORY_KEY[subCategory])
+      : undefined;
+    const canResolveWithoutAi = hasValidCategory || !!inferredFromExistingSub;
+    const needsClassification = !canResolveWithoutAi || !subCategory;
+    if (!needsClassification || !name.trim()) {
+      aiClassificationAttemptedRef.current = true;
+      return;
+    }
+
+    aiClassificationAttemptedRef.current = true;
+    setIsAiClassifying(true);
+
+    fetch('/api/autofill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: name.trim(), input_type: 'name' }),
+    })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok || !data?.venue) return null;
+        return data.venue as Partial<AutofillVenueData>;
+      })
+      .then(venue => {
+        if (!venue) return;
+
+        const suggestedCategory = findCategoryBySlug(categories, venue.suggested_category_slug);
+        const targetCategory = suggestedCategory ?? (hasValidCategory
+          ? categories.find(cat => cat.id === categoryId)
+          : undefined);
+
+        if (!hasValidCategory && suggestedCategory) {
+          setCategoryId(suggestedCategory.id);
+        }
+
+        if (!subCategory && venue.suggested_sub_category && targetCategory) {
+          const isValidSub = targetCategory.sub_categories.some(sub => sub.key === venue.suggested_sub_category);
+          if (isValidSub) {
+            setSubCategory(venue.suggested_sub_category);
+          }
+        }
+      })
+      .catch(() => {
+        // non-blocking: user can still pick manually
+      })
+      .finally(() => {
+        setIsAiClassifying(false);
+      });
+  }, [mode, categories, categoryId, subCategory, name]);
 
   // Feature arrays (prefer existing venue data, fall back to autofill)
   const [features, setFeatures] = useState<string[]>(v.features ?? af.features ?? []);
@@ -242,6 +363,11 @@ export default function VenueForm({
             </select>
           </Field>
         </div>
+        {isAiClassifying && (
+          <p className="text-xs text-gray-500">
+            AI is deciding category and sub-category...
+          </p>
+        )}
 
         {/* Features */}
         <Field label="Features (shown as badges in app)">
