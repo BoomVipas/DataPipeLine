@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import type { VenueStatus } from '@/types/venue';
+import { SUB_CATEGORY_LABELS } from '@/lib/utils/categories';
 
 interface VenueListRow {
   id: string;
@@ -91,11 +92,16 @@ export default async function VenuesPage({
     }
   }
 
+  const validKeys = new Set(Object.keys(SUB_CATEGORY_LABELS));
+
   const allSubCategories = Array.from(allSubCategoryMap.entries())
+    .filter(([key]) => validKeys.has(key))
     .map(([key, name]) => ({ key, name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const subCategoryOptions = selectedCategory?.sub_categories ?? allSubCategories;
+  const subCategoryOptions = selectedCategory
+    ? (selectedCategory.sub_categories ?? []).filter(sub => validKeys.has(sub.key))
+    : allSubCategories;
 
   const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
 
