@@ -732,11 +732,14 @@ Place this check **after** auth and body parsing, **before** slug generation and
 
 ### Part B — Client — `app/(admin)/tools/batch/page.tsx`
 
-Read this file first. Add `'duplicate'` to the `QueueItem` status union and two optional fields:
+Read this file first. The actual `QueueItemStatus` type is:
+```typescript
+type QueueItemStatus = 'queued' | 'fetching' | 'saving' | 'saved' | 'error' | 'duplicate';
+```
+
+Add `'duplicate'` to the union if not already present, and two optional fields to `QueueItem`:
 
 ```typescript
-// In QueueItem type — extend existing status union:
-status: 'pending' | 'processing' | 'saved' | 'approved' | 'error' | 'duplicate';
 existingVenueId?: string;
 existingVenueName?: string;
 ```
@@ -835,13 +838,13 @@ useEffect(() => {
 ```
 
 **Important:**
-- Only `'saved'` and `'duplicate'` items are restored — `'pending'`/`'processing'`/`'error'` are dropped on remount
-- `'approved'` items are not restored because they are removed from the queue on approve (Feature 8)
+- Only `'saved'` and `'duplicate'` items are restored — `'queued'`/`'fetching'`/`'saving'`/`'error'` are dropped on remount (their async work is gone)
+- There is no `'approved'` status — approved cards are filtered out of the queue immediately (Feature 8)
 - No new npm packages needed
 
 ### Acceptance Criteria — Feature 7
 - [ ] Add 3 venues to batch → click Edit on one → browser back → all saved/duplicate cards still visible
-- [ ] `'pending'` / `'processing'` items are NOT restored on remount
+- [ ] `'queued'` / `'fetching'` / `'saving'` items are NOT restored on remount
 - [ ] Hard-refreshing the page clears the queue (sessionStorage is tab-scoped, not persisted across refreshes — correct behaviour)
 
 ---
@@ -856,35 +859,46 @@ Remove approved cards from the queue immediately on individual approve. After "A
 
 ### Implementation — `app/(admin)/tools/batch/page.tsx`
 
-Read this file first. Find the `approveItem` function.
+Read this file first. Find the `approveItem` and `approveAll` functions.
 
-**Current (sets status to 'approved', card stays):**
+**`approveItem` — return boolean, show error on failure:**
 ```typescript
-if (res.ok) {
-  setQueue(q => q.map(i => i.venueId === venueId ? { ...i, status: 'approved' } : i));
+async function approveItem(venueId: string): Promise<boolean> {
+  const res = await fetch(`/api/venues/${venueId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  if (res.ok) {
+    setQueue(q => q.filter(i => i.venueId !== venueId));
+    return true;
+  } else {
+    setQueue(q => q.map(i => i.venueId === venueId ? { ...i, error: 'Approval failed — try again' } : i));
+    return false;
+  }
 }
 ```
 
-**Replace with (filter out the approved card):**
+**`approveAll` — clear remaining saved items after loop:**
 ```typescript
-if (res.ok) {
-  setQueue(q => q.filter(i => i.venueId !== venueId));
+async function approveAll() {
+  setApprovingAll(true);
+  const saved = queue.filter(i => i.status === 'saved' && i.venueId);
+  for (const item of saved) {
+    if (!item.venueId) continue;
+    await approveItem(item.venueId);
+  }
+  setQueue(q => q.filter(i => i.status !== 'saved')); // clear any leftover saved items
+  setApprovingAll(false);
 }
 ```
 
-Find the `approveAll` function. After the loop over all items completes, add a queue clear:
-```typescript
-// After all individual approvals finish:
-setQueue([]);
-setApprovingAll(false);
-```
-
-**Note:** If an individual approval fails (res not ok), leave that card in the queue so the user can retry. Only remove on success.
+**Note:** `approveAll` uses `filter(i => i.status !== 'saved')` rather than `setQueue([])` so that `'duplicate'` and `'error'` cards are preserved — only successfully-processable items are cleared.
 
 ### Acceptance Criteria — Feature 8
 - [ ] Clicking "Approve" on a card immediately removes it from the grid
-- [ ] If approval fails, the card stays so the user can retry
-- [ ] "Approve All" clears the entire grid after all approvals complete
+- [ ] If approval fails, the card shows `error: 'Approval failed — try again'` and stays in the grid
+- [ ] "Approve All" clears all `'saved'` cards; `'duplicate'`/`'error'` cards remain
 
 ---
 

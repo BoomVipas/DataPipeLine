@@ -7,7 +7,7 @@ import type { AutofillVenueData } from '@/types/autofill';
 
 const MAX_CONCURRENT = 10;
 
-type QueueItemStatus = 'queued' | 'fetching' | 'saving' | 'saved' | 'approved' | 'error';
+type QueueItemStatus = 'queued' | 'fetching' | 'saving' | 'saved' | 'error' | 'duplicate';
 
 interface QueueItem {
   id: string;
@@ -22,6 +22,8 @@ interface QueueItem {
   priceLevel?: number;
   shortDescription?: string;
   error?: string;
+  existingVenueId?: string;
+  existingVenueName?: string;
 }
 
 interface Category {
@@ -46,8 +48,8 @@ function StatusPill({ status }: { status: QueueItemStatus }) {
     fetching: { label: 'Fetching…',  className: 'text-blue-400 bg-blue-400/10' },
     saving:   { label: 'Saving…',    className: 'text-amber-400 bg-amber-400/10' },
     saved:    { label: 'Draft saved',className: 'text-emerald-400 bg-emerald-400/10' },
-    approved: { label: 'Approved',   className: 'text-emerald-400 bg-emerald-400/10' },
     error:    { label: 'Error',      className: 'text-red-400 bg-red-400/10' },
+    duplicate:{ label: 'Duplicate',  className: 'text-amber-400 bg-amber-400/10' },
   };
   const { label, className } = map[status];
   return (
@@ -76,10 +78,44 @@ function QueueCard({ item, onApprove, onRemove, onRetry }: QueueCardProps) {
     setApproving(false);
   }
 
+  if (item.status === 'duplicate') {
+    return (
+      <div className="relative bg-card border border-amber-500/30 rounded-xl overflow-hidden flex flex-col">
+        <div className="h-32 bg-amber-500/10 flex items-center justify-center shrink-0">
+          <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+        </div>
+        <div className="p-3 space-y-1.5">
+          <p className="text-xs font-semibold text-amber-400">Already exists</p>
+          <p className="text-sm font-medium text-ink truncate">
+            {item.existingVenueName ?? item.venueName ?? item.input}
+          </p>
+          {item.existingVenueId ? (
+            <Link href={`/venues/${item.existingVenueId}`} className="text-xs text-flame hover:underline">
+              View existing venue →
+            </Link>
+          ) : (
+            <p className="text-xs text-ghost">Existing venue found</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-ghost hover:text-ink"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card border border-white/[0.07] rounded-xl overflow-hidden flex flex-col">
       {/* Photo / placeholder */}
-      {item.status === 'saved' || item.status === 'approved' ? (
+      {item.status === 'saved' ? (
         <div className="h-32 bg-raised shrink-0 relative overflow-hidden">
           {item.photoPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -93,13 +129,6 @@ function QueueCard({ item, onApprove, onRemove, onRetry }: QueueCardProps) {
               <svg className="w-8 h-8 text-ghost/40" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-              </svg>
-            </div>
-          )}
-          {item.status === 'approved' && (
-            <div className="absolute inset-0 bg-emerald-900/60 flex items-center justify-center">
-              <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
             </div>
           )}
@@ -136,13 +165,11 @@ function QueueCard({ item, onApprove, onRemove, onRetry }: QueueCardProps) {
         {/* Status + dismiss */}
         <div className="flex items-start justify-between gap-2">
           <StatusPill status={item.status} />
-          {item.status !== 'approved' && (
-            <button onClick={onRemove} className="text-ghost hover:text-red-400 transition-colors shrink-0">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
+          <button type="button" onClick={onRemove} className="text-ghost hover:text-red-400 transition-colors shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Name */}
@@ -151,7 +178,7 @@ function QueueCard({ item, onApprove, onRemove, onRetry }: QueueCardProps) {
         </p>
 
         {/* Meta */}
-        {item.status === 'saved' || item.status === 'approved' ? (
+        {item.status === 'saved' ? (
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               {item.categoryName && (
@@ -187,7 +214,7 @@ function QueueCard({ item, onApprove, onRemove, onRetry }: QueueCardProps) {
       </div>
 
       {/* Actions */}
-      {(item.status === 'saved' || item.status === 'error' || item.status === 'approved') && (
+      {(item.status === 'saved' || item.status === 'error') && (
         <div className="px-3 pb-3 flex gap-2">
           {item.status === 'saved' && item.venueId && (
             <>
@@ -217,17 +244,6 @@ function QueueCard({ item, onApprove, onRemove, onRetry }: QueueCardProps) {
               Retry
             </button>
           )}
-          {item.status === 'approved' && item.venueId && (
-            <Link
-              href={`/venues/${item.venueId}`}
-              className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
-            >
-              View venue
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-              </svg>
-            </Link>
-          )}
         </div>
       )}
     </div>
@@ -242,6 +258,31 @@ export default function BatchPage() {
   const processingRef = useRef<Set<string>>(new Set());
   const categoryMapRef = useRef<Record<string, string>>({});
   const categoriesRef = useRef<Category[]>([]);
+
+  useEffect(() => {
+    const savedQueue = sessionStorage.getItem('batch-queue');
+    if (!savedQueue) return;
+
+    try {
+      const parsed = JSON.parse(savedQueue) as QueueItem[];
+      const restorable = parsed.filter(item =>
+        (item.status === 'saved' && Boolean(item.venueId)) || item.status === 'duplicate'
+      );
+      if (restorable.length > 0) {
+        setQueue(restorable);
+      }
+    } catch {
+      // Ignore corrupt session data
+    }
+  }, []);
+
+  useEffect(() => {
+    if (queue.length > 0) {
+      sessionStorage.setItem('batch-queue', JSON.stringify(queue));
+    } else {
+      sessionStorage.removeItem('batch-queue');
+    }
+  }, [queue]);
 
   // Load categories on mount
   useEffect(() => {
@@ -303,6 +344,25 @@ export default function BatchPage() {
         }),
       });
 
+      if (saveRes.status === 409) {
+        const duplicateData = await saveRes.json().catch(() => ({})) as {
+          error?: string;
+          existing?: { id?: string; name?: string };
+        };
+
+        if (duplicateData.error !== 'duplicate') {
+          throw new Error(duplicateData.error ?? 'Save failed');
+        }
+
+        setQueue(q => q.map(i => i.id === id ? {
+          ...i,
+          status: 'duplicate',
+          existingVenueId: duplicateData.existing?.id,
+          existingVenueName: duplicateData.existing?.name,
+        } : i));
+        return;
+      }
+
       if (!saveRes.ok) {
         const err = await saveRes.json().catch(() => ({})) as { error?: string };
         throw new Error(err.error ?? 'Save failed');
@@ -359,14 +419,18 @@ export default function BatchPage() {
     setInput('');
   }
 
-  async function approveItem(venueId: string) {
+  async function approveItem(venueId: string): Promise<boolean> {
     const res = await fetch(`/api/venues/${venueId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'approved' }),
     });
     if (res.ok) {
-      setQueue(q => q.map(i => i.venueId === venueId ? { ...i, status: 'approved' } : i));
+      setQueue(q => q.filter(i => i.venueId !== venueId));
+      return true;
+    } else {
+      setQueue(q => q.map(i => i.venueId === venueId ? { ...i, error: 'Approval failed — try again' } : i));
+      return false;
     }
   }
 
@@ -374,8 +438,10 @@ export default function BatchPage() {
     setApprovingAll(true);
     const saved = queue.filter(i => i.status === 'saved' && i.venueId);
     for (const item of saved) {
-      await approveItem(item.venueId!);
+      if (!item.venueId) continue;
+      await approveItem(item.venueId);
     }
+    setQueue(q => q.filter(i => i.status !== 'saved'));
     setApprovingAll(false);
   }
 
@@ -390,7 +456,7 @@ export default function BatchPage() {
   const savedCount = queue.filter(i => i.status === 'saved').length;
   const fetchingCount = queue.filter(i => i.status === 'fetching' || i.status === 'saving').length;
   const errorCount = queue.filter(i => i.status === 'error').length;
-  const approvedCount = queue.filter(i => i.status === 'approved').length;
+  const duplicateCount = queue.filter(i => i.status === 'duplicate').length;
 
   // Suppress unused warning — categories used only for display via categoriesRef
   void categories;
@@ -457,8 +523,8 @@ export default function BatchPage() {
               {savedCount > 0 && <span className="text-emerald-400">{savedCount} ready</span>}
               {fetchingCount > 0 && <span className="text-blue-400">{fetchingCount} processing</span>}
               {errorCount > 0 && <span className="text-red-400">{errorCount} error{errorCount > 1 ? 's' : ''}</span>}
-              {approvedCount > 0 && <span className="text-ghost">{approvedCount} approved</span>}
-              {savedCount === 0 && fetchingCount === 0 && errorCount === 0 && approvedCount === 0 && (
+              {duplicateCount > 0 && <span className="text-amber-400">{duplicateCount} duplicate</span>}
+              {savedCount === 0 && fetchingCount === 0 && errorCount === 0 && duplicateCount === 0 && (
                 <span className="text-ghost">{queue.length} queued</span>
               )}
             </div>
