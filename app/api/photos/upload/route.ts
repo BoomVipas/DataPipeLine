@@ -27,10 +27,13 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
+  const extToMime: Record<string, string> = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  };
   const { error } = await supabase.storage
     .from('venue-photos')
     .upload(fileName, buffer, {
-      contentType: file.type,
+      contentType: extToMime[ext] ?? 'image/jpeg',
       upsert: false,
     });
 

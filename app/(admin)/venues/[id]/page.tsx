@@ -9,6 +9,7 @@ import type { Venue, VenueNote } from '@/types/venue';
 import { SUB_CATEGORY_LABELS, CATEGORY_ICONS, SUB_CATEGORY_ICONS } from '@/lib/utils/categories';
 import QuickFillPanel from '@/components/venues/QuickFillPanel';
 import DeleteVenueButton from '@/components/venues/DeleteVenueButton';
+import PhotoManager from '@/components/venues/PhotoManager';
 
 export default async function VenueDetailPage({
   params,
@@ -50,6 +51,10 @@ export default async function VenueDetailPage({
 
   const v = venue as Venue;
   const priceSymbols = ['฿', '฿฿', '฿฿฿', '฿฿฿฿'];
+  const allPhotos = Array.from(new Set([
+    ...(v.hero_image_url ? [v.hero_image_url] : []),
+    ...((v.photo_urls ?? []).filter(url => url !== v.hero_image_url)),
+  ]));
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -106,27 +111,9 @@ export default async function VenueDetailPage({
         categories={categoriesData ?? []}
       />
 
-      {/* Hero image */}
-      {v.hero_image_url && (
-        <div className="rounded-xl overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={v.hero_image_url}
-            alt={v.name}
-            className="w-full h-56 object-cover"
-          />
-        </div>
-      )}
-
-      {/* Photo gallery */}
-      {v.photo_urls && v.photo_urls.length > 1 && (
-        <div className="grid grid-cols-5 gap-2">
-          {v.photo_urls.slice(1, 6).map((url, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={i} src={url} alt="" className="h-20 w-full rounded-lg object-cover" />
-          ))}
-        </div>
-      )}
+      <div className="bg-card border border-white/[0.07] rounded-xl p-4">
+        <PhotoManager venueId={v.id} initialPhotos={allPhotos} />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Info */}

@@ -2,6 +2,7 @@
  * Tests for:
  *   Fix 3 — Slug unique constraint returns 409 (not 500)
  *   Fix 4 — Pagination page is capped at 1000
+ *   Fix 6 — Duplicate google_place_id returns 409
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -27,6 +28,7 @@ function makeQueryChain(terminalResult: unknown) {
   );
   // Resolve at the end of the chain (.single() or direct await)
   chain['single'] = vi.fn().mockResolvedValue(terminalResult);
+  chain['maybeSingle'] = vi.fn().mockResolvedValue(terminalResult);
   // Allow direct awaiting (e.g. `await query` without .single())
   chain['then'] = (resolve: (v: unknown) => void) => Promise.resolve(terminalResult).then(resolve);
   return chain;
@@ -131,6 +133,42 @@ describe('POST /api/venues — slug conflict returns 409', () => {
 
     const res = await POST(makeRequest('POST', '/api/venues', { name: 'Test Venue', status: 'draft' }));
     expect(res.status).toBe(201);
+  });
+
+  it('returns 409 when google_place_id already exists', async () => {
+    const { createClient } = await import('@/lib/supabase/server');
+
+    const adminChain = makeQueryChain({ data: MOCK_ADMIN, error: null });
+    const duplicateLookup: Record<string, unknown> = {};
+    duplicateLookup['select'] = vi.fn().mockReturnValue(duplicateLookup);
+    duplicateLookup['eq'] = vi.fn().mockReturnValue(duplicateLookup);
+    duplicateLookup['maybeSingle'] = vi.fn().mockResolvedValue({
+      data: { id: 'existing-1', name: 'Existing Venue', status: 'draft' },
+      error: null,
+    });
+
+    (createClient as ReturnType<typeof vi.fn>).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER } }) },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === 'admin_users') return adminChain;
+        if (table === 'venues') return duplicateLookup;
+        return makeQueryChain({ data: null, error: null });
+      }),
+    });
+
+    const res = await POST(makeRequest('POST', '/api/venues', {
+      name: 'Test Venue',
+      status: 'draft',
+      google_place_id: 'place-123',
+    }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe('duplicate');
+    expect(body.existing).toMatchObject({
+      id: 'existing-1',
+      name: 'Existing Venue',
+      status: 'draft',
+    });
   });
 });
 

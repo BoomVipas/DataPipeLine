@@ -62,6 +62,33 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { admin_note, ...venueData } = body;
 
+  if (venueData.google_place_id) {
+    const { data: existing, error: duplicateError } = await supabase
+      .from('venues')
+      .select('id, name, status')
+      .eq('google_place_id', venueData.google_place_id)
+      .eq('is_deleted', false)
+      .maybeSingle();
+
+    if (duplicateError) {
+      return NextResponse.json({ error: duplicateError.message }, { status: 500 });
+    }
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: 'duplicate',
+          existing: {
+            id: existing.id,
+            name: existing.name,
+            status: existing.status,
+          },
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   // Generate unique slug
   const desiredSlug = generateSlug(venueData.name);
   const { data: existingSlugs } = await supabase

@@ -14,6 +14,32 @@ export async function POST(req: NextRequest) {
   const { url } = await req.json();
   if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 });
 
+  // SSRF protection — reject private IPs, localhost, and cloud metadata endpoints
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+  }
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+  }
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const blockedPatterns = [
+    /^localhost$/,
+    /^127\./,
+    /^10\./,
+    /^172\.(1[6-9]|2[0-9]|3[01])\./,
+    /^192\.168\./,
+    /^169\.254\./, // AWS/Azure metadata
+    /^metadata\.google/,
+    /^0\.0\.0\.0$/,
+    /^::1$/,
+  ];
+  if (blockedPatterns.some(p => p.test(hostname))) {
+    return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+  }
+
   const data = await scrapeWebsite(url);
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: 'Could not scrape website' }, { status: 404 });

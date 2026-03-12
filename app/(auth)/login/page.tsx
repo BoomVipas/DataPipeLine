@@ -94,6 +94,8 @@ export default function LoginPage() {
           <div className="flex justify-center mb-4">
             <Image src="/icons/Logo.png" alt="Wander" width={96} height={96} className="rounded-2xl" />
           </div>
+          <h1 className="text-2xl font-bold font-display tracking-tight text-ink">WANDER</h1>
+          <p className="mt-1 text-xs text-ghost uppercase tracking-widest">Venue Ops Portal</p>
         </div>
 
         <div className="bg-card rounded-2xl border border-white/[0.07] p-6">

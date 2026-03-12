@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   // Check the signed-in user is a registered admin
   const { data: { user } } = await supabase.auth.getUser();
-  console.log('[auth/callback] user email:', user?.email ?? 'null');
+  console.log('[auth/callback] user authenticated:', !!user);
 
   // Use service role to bypass RLS — new admins have user_id=null so
   // a policy checking auth.uid()=user_id would hide their row entirely.
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       .from('admin_users')
       .update({ user_id: user.id })
       .eq('id', adminUser.id);
-    console.log('[auth/callback] populated user_id for', user.email);
+    console.log('[auth/callback] populated user_id for new admin');
   }
 
   console.log('[auth/callback] admin verified, redirecting to', next);
