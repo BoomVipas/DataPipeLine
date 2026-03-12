@@ -1,4 +1,4 @@
-# Codex Assignment — 5 Feature Pack
+# Codex Assignment — 8 Feature Pack
 
 **Project:** Wander Admin Portal
 **Stack:** Next.js 16 App Router · TypeScript strict · Supabase · Tailwind CSS v4 · Google Places API (New)
@@ -8,13 +8,16 @@
 
 ## Overview
 
-Implement 5 improvements to the venue management workflow:
+Implement 8 improvements to the venue management workflow:
 
 1. **Smart tag limiting** — AI autofill generates too many redundant/generic tags
 2. **Clear autofill button** — No way to wipe AI-prefilled fields and start over
 3. **Selective Google Places refetch tool** — Need cost-efficient targeted refetch by category/status
 4. **Delete venue button** — No delete exists on any venue page
 5. **Photo reorder & delete** — Photos are static; admins need to reorder (first = hero) and delete bad photos
+6. **Duplicate venue prevention** — Same place gets added twice by human error; no google_place_id guard
+7. **Batch queue persists after navigation** — Clicking Edit loses the entire batch queue on return
+8. **Remove approved cards from batch grid** — Approved cards clutter the grid; should disappear to keep workflow clean
 
 Read this entire document before writing any code.
 
@@ -695,6 +698,238 @@ const allPhotos = [
 
 ---
 
+## Feature 6 — Duplicate Venue Prevention
+
+### Problem
+Admins accidentally add the same place twice (human error when typing venue names). The system has no guard against venues with the same `google_place_id`.
+
+### Solution
+Two-part fix: server-side 409 when `google_place_id` already exists, client-side amber warning card in Batch Add.
+
+### Part A — Server — `app/api/venues/route.ts`
+
+Read this file first. Before the insert, add a `google_place_id` duplicate check:
+
+```typescript
+if (venueData.google_place_id) {
+  const { data: existing } = await supabase
+    .from('venues')
+    .select('id, name, status')
+    .eq('google_place_id', venueData.google_place_id)
+    .eq('is_deleted', false)
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json(
+      { error: 'duplicate', existing: { id: existing.id, name: existing.name, status: existing.status } },
+      { status: 409 }
+    );
+  }
+}
+```
+
+Place this check **after** auth and body parsing, **before** slug generation and insert.
+
+### Part B — Client — `app/(admin)/tools/batch/page.tsx`
+
+Read this file first. Add `'duplicate'` to the `QueueItem` status union and two optional fields:
+
+```typescript
+// In QueueItem type — extend existing status union:
+status: 'pending' | 'processing' | 'saved' | 'approved' | 'error' | 'duplicate';
+existingVenueId?: string;
+existingVenueName?: string;
+```
+
+When `POST /api/venues` returns 409, parse the `existing` field and update the queue item:
+
+```typescript
+if (res.status === 409) {
+  const data = await res.json();
+  setQueue(q => q.map(i => i.id === item.id ? {
+    ...i,
+    status: 'duplicate',
+    existingVenueId: data.existing?.id,
+    existingVenueName: data.existing?.name,
+  } : i));
+  return;
+}
+```
+
+Add a duplicate card variant in the render section (alongside the existing `status === 'error'` handling):
+
+```tsx
+{item.status === 'duplicate' && (
+  <div className="relative bg-card border border-amber-500/30 rounded-2xl overflow-hidden">
+    <div className="h-32 bg-amber-500/10 flex items-center justify-center">
+      <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+      </svg>
+    </div>
+    <div className="p-3 space-y-1.5">
+      <p className="text-xs font-semibold text-amber-400">Already exists</p>
+      <p className="text-sm font-medium text-ink truncate">{item.name || item.input}</p>
+      <Link href={`/venues/${item.existingVenueId}`} className="text-xs text-flame hover:underline">
+        View existing venue →
+      </Link>
+    </div>
+    <button
+      onClick={() => setQueue(q => q.filter(i => i.id !== item.id))}
+      className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-ghost hover:text-ink"
+    >
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+)}
+```
+
+### Acceptance Criteria — Feature 6
+- [ ] `POST /api/venues` returns 409 with `{ error: 'duplicate', existing: { id, name, status } }` when `google_place_id` already exists
+- [ ] Batch Add shows amber "Already exists" card instead of creating a new draft
+- [ ] Duplicate card links to the existing venue
+- [ ] Duplicate card can be dismissed with ×
+- [ ] No new venue row is created in the database
+
+---
+
+## Feature 7 — Batch Queue Persists After Navigation
+
+### Problem
+The batch queue lives in React state only. Clicking "Edit" on a card navigates to `/venues/:id/edit`. When the user returns (browser back or re-navigates to `/tools/batch`), the React component remounts and the queue is empty.
+
+### Solution
+Persist the queue in `sessionStorage` so it survives navigation within the same browser tab. Restore on mount. (sessionStorage is tab-scoped — cleared when the tab is closed, which is the right behaviour.)
+
+### Implementation — `app/(admin)/tools/batch/page.tsx`
+
+Read this file first. Add two `useEffect` hooks:
+
+**Restore on mount** (add near the top, after state declarations):
+```typescript
+useEffect(() => {
+  const saved = sessionStorage.getItem('batch-queue');
+  if (saved) {
+    try {
+      const parsed: QueueItem[] = JSON.parse(saved);
+      // Only restore completed items — processing state is gone after remount
+      const restorable = parsed.filter(
+        i => i.venueId && ['saved', 'duplicate'].includes(i.status)
+      );
+      if (restorable.length > 0) setQueue(restorable);
+    } catch { /* ignore corrupt data */ }
+  }
+}, []); // empty deps — run once on mount only
+```
+
+**Persist on every queue change**:
+```typescript
+useEffect(() => {
+  if (queue.length > 0) {
+    sessionStorage.setItem('batch-queue', JSON.stringify(queue));
+  } else {
+    sessionStorage.removeItem('batch-queue');
+  }
+}, [queue]);
+```
+
+**Important:**
+- Only `'saved'` and `'duplicate'` items are restored — `'pending'`/`'processing'`/`'error'` are dropped on remount
+- `'approved'` items are not restored because they are removed from the queue on approve (Feature 8)
+- No new npm packages needed
+
+### Acceptance Criteria — Feature 7
+- [ ] Add 3 venues to batch → click Edit on one → browser back → all saved/duplicate cards still visible
+- [ ] `'pending'` / `'processing'` items are NOT restored on remount
+- [ ] Hard-refreshing the page clears the queue (sessionStorage is tab-scoped, not persisted across refreshes — correct behaviour)
+
+---
+
+## Feature 8 — Remove Approved Cards from Batch Grid
+
+### Problem
+After clicking "Approve" on a batch card, it stays in the grid with a green checkmark overlay. After approving several cards, the grid fills with done items and the user loses track of which still need action.
+
+### Solution
+Remove approved cards from the queue immediately on individual approve. After "Approve All" finishes, clear the entire queue.
+
+### Implementation — `app/(admin)/tools/batch/page.tsx`
+
+Read this file first. Find the `approveItem` function.
+
+**Current (sets status to 'approved', card stays):**
+```typescript
+if (res.ok) {
+  setQueue(q => q.map(i => i.venueId === venueId ? { ...i, status: 'approved' } : i));
+}
+```
+
+**Replace with (filter out the approved card):**
+```typescript
+if (res.ok) {
+  setQueue(q => q.filter(i => i.venueId !== venueId));
+}
+```
+
+Find the `approveAll` function. After the loop over all items completes, add a queue clear:
+```typescript
+// After all individual approvals finish:
+setQueue([]);
+setApprovingAll(false);
+```
+
+**Note:** If an individual approval fails (res not ok), leave that card in the queue so the user can retry. Only remove on success.
+
+### Acceptance Criteria — Feature 8
+- [ ] Clicking "Approve" on a card immediately removes it from the grid
+- [ ] If approval fails, the card stays so the user can retry
+- [ ] "Approve All" clears the entire grid after all approvals complete
+
+---
+
+## File Map (updated)
+
+### Create
+| File | Purpose |
+|------|---------|
+| `app/(admin)/tools/refetch/page.tsx` | Refetch tool UI (Feature 3) |
+| `app/api/venues/refetch/route.ts` | Refetch API endpoint (Feature 3) |
+| `components/venues/DeleteVenueButton.tsx` | Delete button client component (Feature 4) |
+| `components/venues/PhotoManager.tsx` | Photo reorder & delete component (Feature 5) |
+
+### Modify
+| File | Change |
+|------|--------|
+| `lib/autofill/gemini.ts` | Prompt update + post-processing dedup rules (Feature 1) |
+| `app/(admin)/venues/new/page.tsx` | Add clear autofill button (Feature 2) |
+| `app/api/venues/[id]/route.ts` | Add DELETE handler (Feature 4) — create if doesn't exist |
+| `app/(admin)/venues/[id]/page.tsx` | Add DeleteVenueButton (Feature 4) + PhotoManager (Feature 5) |
+| `app/(admin)/venues/[id]/edit/page.tsx` | Add DeleteVenueButton (Feature 4) |
+| `components/layout/Sidebar.tsx` | Add Tools nav item (Feature 3) |
+| `app/api/venues/route.ts` | Add google_place_id duplicate check before insert (Feature 6) |
+| `app/(admin)/tools/batch/page.tsx` | Handle 409 duplicate card, sessionStorage persistence, remove on approve (Features 6, 7, 8) |
+
+### Do NOT touch
+- Any table in `supabase/migration.sql` mobile sections (`activity`, `user`, `party`, etc.)
+- `lib/autofill/photos.ts` — use it, don't modify it
+- `lib/autofill/google.ts` — use it, don't modify it
+- `types/venue.ts` — only add types if strictly necessary
+
+---
+
+## Project Conventions
+
+- **Dark design system tokens:** `bg-canvas`, `bg-panel`, `bg-card`, `bg-raised`, `text-ink`, `text-dim`, `text-ghost`, `text-flame`
+- **Cards:** `bg-card border border-white/[0.07] rounded-xl`
+- **Accent color:** `flame` (#FF5533) for CTAs, active states
+- **Fonts:** `font-display` (Syne) for headings, `font-sans` (Outfit) for body
+- **Supabase table:** `category` (singular, not `categories`)
+- **Auth client:** `createClient()` from `@/lib/supabase/server` in API routes / server components; `createClient()` from `@/lib/supabase/client` in client components
+- **TypeScript strict** — no `any` without comment
+
+---
+
 ## Final Checks Before Submitting
 
 Run `npx tsc --noEmit` and fix all errors. Then verify:
@@ -704,6 +939,9 @@ Run `npx tsc --noEmit` and fix all errors. Then verify:
 - [ ] Feature 3: Visit `/tools/refetch` → select a category → click Preview → confirm list shows → click Run → confirm results
 - [ ] Feature 4: Open any venue detail page → click Delete → confirm prompt → confirm redirect to `/venues`
 - [ ] Feature 5: Open a venue with photos → drag to reorder → delete one → click Save → confirm new order persists after reload
+- [ ] Feature 6: Add a venue that already exists → amber "Already exists" card appears, no duplicate row in DB
+- [ ] Feature 7: Add venues to batch → click Edit → browser back → all saved cards still visible
+- [ ] Feature 8: Approve a batch card → disappears immediately; Approve All → grid clears completely
 - [ ] `npx tsc --noEmit` passes with zero errors
 
 ---
