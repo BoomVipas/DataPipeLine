@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -90,11 +91,8 @@ export default function LoginPage() {
       <div className="relative w-full max-w-xs">
         {/* Brand mark */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-flame mb-4">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-            </svg>
+          <div className="flex justify-center mb-4">
+            <Image src="/icons/Logo.png" alt="Wander" width={96} height={96} className="rounded-2xl" />
           </div>
           <h1 className="text-2xl font-bold font-display tracking-tight text-ink">WANDER</h1>
           <p className="mt-1 text-xs text-ghost uppercase tracking-widest">Venue Ops Portal</p>
