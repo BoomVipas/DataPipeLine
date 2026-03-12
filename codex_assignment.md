@@ -481,6 +481,218 @@ Same — import and add `<DeleteVenueButton>` near the page header or form foote
 
 ---
 
+## Feature 5 — Photo Reorder & Delete
+
+### Problem
+The venue detail page shows a static hero image + thumbnail grid. Admins cannot reorder photos (the first photo is the hero) or delete individual bad photos without re-running the full autofill.
+
+### Solution
+A new `PhotoManager` client component replaces the static photo display. It supports HTML5 drag-and-drop reordering and per-photo deletion. Changes are saved via the existing `PATCH /api/venues/:id` endpoint.
+
+### Key constraints
+- Photos are stored as `venues.hero_image_url` (string) and `venues.photo_urls` (string[]) — **no separate table**
+- **First photo in the ordered list = hero** (`hero_image_url`)
+- Use **no new npm packages** — HTML5 native `draggable` API only
+- Use **existing `PATCH /api/venues/:id`** — pass `{ hero_image_url, photo_urls }` in body
+
+### New File — `components/venues/PhotoManager.tsx`
+
+This is a `'use client'` component.
+
+**Props:**
+```typescript
+interface Props {
+  venueId: string;
+  initialPhotos: string[];  // combined: [hero_image_url, ...photo_urls] with nulls filtered out
+}
+```
+
+**State:**
+```typescript
+const [photos, setPhotos] = useState<string[]>(initialPhotos);
+const [dragIndex, setDragIndex] = useState<number | null>(null);
+const [saving, setSaving] = useState(false);
+const [saved, setSaved] = useState(false);
+const isDirty = JSON.stringify(photos) !== JSON.stringify(initialPhotos);
+```
+
+**Drag-and-drop handlers:**
+```typescript
+function onDragStart(index: number) {
+  setDragIndex(index);
+}
+
+function onDrop(targetIndex: number) {
+  if (dragIndex === null || dragIndex === targetIndex) return;
+  const next = [...photos];
+  const [moved] = next.splice(dragIndex, 1);
+  next.splice(targetIndex, 0, moved);
+  setPhotos(next);
+  setDragIndex(null);
+}
+```
+
+**Delete handler:**
+```typescript
+function onDelete(index: number) {
+  setPhotos(photos.filter((_, i) => i !== index));
+}
+```
+
+**Save handler:**
+```typescript
+async function onSave() {
+  setSaving(true);
+  const res = await fetch(`/api/venues/${venueId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      hero_image_url: photos[0] ?? null,
+      photo_urls: photos,
+    }),
+  });
+  setSaving(false);
+  if (res.ok) {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  } else {
+    alert('Failed to save photo order. Please try again.');
+  }
+}
+```
+
+**Render layout:**
+```tsx
+<div className="space-y-3">
+  <div className="flex items-center justify-between">
+    <h3 className="text-xs font-semibold text-dim uppercase tracking-wider">Photos</h3>
+    {isDirty && (
+      <button
+        onClick={onSave}
+        disabled={saving}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-flame text-white rounded-lg hover:bg-flame/90 disabled:opacity-50 transition-colors"
+      >
+        {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save order'}
+      </button>
+    )}
+  </div>
+
+  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+    {photos.map((url, i) => (
+      <div
+        key={url}
+        draggable
+        onDragStart={() => onDragStart(i)}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={() => onDrop(i)}
+        className={`relative group aspect-square rounded-lg overflow-hidden cursor-grab bg-raised border border-white/[0.07] ${dragIndex === i ? 'opacity-40 ring-2 ring-flame' : ''}`}
+      >
+        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+
+        {/* Hero badge */}
+        {i === 0 && (
+          <span className="absolute bottom-1 left-1 text-[10px] font-semibold bg-flame text-white px-1.5 py-0.5 rounded">
+            Hero
+          </span>
+        )}
+
+        {/* Delete button */}
+        <button
+          onClick={() => onDelete(i)}
+          className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/60 hover:bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-all"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Drag handle hint */}
+        <div className="absolute top-1 left-1 w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-60 transition-all">
+          <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M7 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm6 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm6 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
+          </svg>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  {photos.length === 0 && (
+    <p className="text-xs text-ghost py-4 text-center">No photos available.</p>
+  )}
+</div>
+```
+
+### Modify — `app/(admin)/venues/[id]/page.tsx`
+
+Read the file first. Find the hero image + gallery section (currently shows `v.hero_image_url` large + `v.photo_urls.slice(1, 6)` grid). Replace it entirely with `<PhotoManager>`.
+
+**Replace the hero + gallery block with:**
+```tsx
+import PhotoManager from '@/components/venues/PhotoManager';
+
+// In the server component, build the combined array:
+const allPhotos = [
+  ...(v.hero_image_url ? [v.hero_image_url] : []),
+  ...((v.photo_urls ?? []).filter(u => u !== v.hero_image_url)),
+];
+
+// In JSX, replace the old hero/gallery block with:
+<PhotoManager venueId={v.id} initialPhotos={allPhotos} />
+```
+
+### Acceptance Criteria — Feature 5
+- [ ] `PhotoManager` component exists at `components/venues/PhotoManager.tsx`
+- [ ] Venue detail page shows all photos in a draggable grid
+- [ ] First photo is labeled "Hero"
+- [ ] Dragging a photo to a new position reorders the grid
+- [ ] Clicking × on a photo removes it from the grid
+- [ ] "Save order" button appears only when changes are made (isDirty)
+- [ ] Saving calls `PATCH /api/venues/:id` with `{ hero_image_url, photo_urls }`
+- [ ] "Save order" button shows "Saved ✓" feedback for 2 seconds after success
+- [ ] No new npm packages added
+
+---
+
+## File Map (updated)
+
+### Create
+| File | Purpose |
+|------|---------|
+| `app/(admin)/tools/refetch/page.tsx` | Refetch tool UI (Feature 3) |
+| `app/api/venues/refetch/route.ts` | Refetch API endpoint (Feature 3) |
+| `components/venues/DeleteVenueButton.tsx` | Delete button client component (Feature 4) |
+| `components/venues/PhotoManager.tsx` | Photo reorder & delete component (Feature 5) |
+
+### Modify
+| File | Change |
+|------|--------|
+| `lib/autofill/gemini.ts` | Prompt update + post-processing dedup rules (Feature 1) |
+| `app/(admin)/venues/new/page.tsx` | Add clear autofill button (Feature 2) |
+| `app/api/venues/[id]/route.ts` | Add DELETE handler (Feature 4) — create if doesn't exist |
+| `app/(admin)/venues/[id]/page.tsx` | Add DeleteVenueButton (Feature 4) + PhotoManager (Feature 5) |
+| `app/(admin)/venues/[id]/edit/page.tsx` | Add DeleteVenueButton (Feature 4) |
+| `components/layout/Sidebar.tsx` | Add Tools nav item (Feature 3) |
+
+### Do NOT touch
+- Any table in `supabase/migration.sql` mobile sections (`activity`, `user`, `party`, etc.)
+- `lib/autofill/photos.ts` — use it, don't modify it
+- `lib/autofill/google.ts` — use it, don't modify it
+- `types/venue.ts` — only add types if strictly necessary
+
+---
+
+## Project Conventions
+
+- **Dark design system tokens:** `bg-canvas`, `bg-panel`, `bg-card`, `bg-raised`, `text-ink`, `text-dim`, `text-ghost`, `text-flame`
+- **Cards:** `bg-card border border-white/[0.07] rounded-xl`
+- **Accent color:** `flame` (#FF5533) for CTAs, active states
+- **Fonts:** `font-display` (Syne) for headings, `font-sans` (Outfit) for body
+- **Supabase table:** `category` (singular, not `categories`)
+- **Auth client:** `createClient()` from `@/lib/supabase/server` in API routes / server components; `createClient()` from `@/lib/supabase/client` in client components
+- **TypeScript strict** — no `any` without comment
+
+---
+
 ## Final Checks Before Submitting
 
 Run `npx tsc --noEmit` and fix all errors. Then verify:
@@ -489,6 +701,7 @@ Run `npx tsc --noEmit` and fix all errors. Then verify:
 - [ ] Feature 2: Autofill a venue on `/venues/new` → confirm "Clear autofill" button appears → click it → form is blank
 - [ ] Feature 3: Visit `/tools/refetch` → select a category → click Preview → confirm list shows → click Run → confirm results
 - [ ] Feature 4: Open any venue detail page → click Delete → confirm prompt → confirm redirect to `/venues`
+- [ ] Feature 5: Open a venue with photos → drag to reorder → delete one → click Save → confirm new order persists after reload
 - [ ] `npx tsc --noEmit` passes with zero errors
 
 ---
