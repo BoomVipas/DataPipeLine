@@ -1,4 +1,4 @@
-# Codex Assignment — 4 Feature Pack
+# Codex Assignment — 5 Feature Pack
 
 **Project:** Wander Admin Portal
 **Stack:** Next.js 16 App Router · TypeScript strict · Supabase · Tailwind CSS v4 · Google Places API (New)
@@ -8,12 +8,13 @@
 
 ## Overview
 
-Implement 4 improvements to the venue management workflow:
+Implement 5 improvements to the venue management workflow:
 
 1. **Smart tag limiting** — AI autofill generates too many redundant/generic tags
 2. **Clear autofill button** — No way to wipe AI-prefilled fields and start over
 3. **Selective Google Places refetch tool** — Need cost-efficient targeted refetch by category/status
 4. **Delete venue button** — No delete exists on any venue page
+5. **Photo reorder & delete** — Photos are static; admins need to reorder (first = hero) and delete bad photos
 
 Read this entire document before writing any code.
 
@@ -487,10 +488,11 @@ Same — import and add `<DeleteVenueButton>` near the page header or form foote
 The venue detail page shows a static hero image + thumbnail grid. Admins cannot reorder photos (the first photo is the hero) or delete individual bad photos without re-running the full autofill.
 
 ### Solution
-A new `PhotoManager` client component replaces the static photo display. It supports HTML5 drag-and-drop reordering and per-photo deletion. Changes are saved via the existing `PATCH /api/venues/:id` endpoint.
+A new `PhotoManager` client component replaces the static photo display. It **pre-fills with the venue's existing photos** so the admin sees the current state first. They can then drag to reorder or click × to delete individual photos. Nothing is saved until they click "Save order". Changes are saved via the existing `PATCH /api/venues/:id` endpoint.
 
 ### Key constraints
 - Photos are stored as `venues.hero_image_url` (string) and `venues.photo_urls` (string[]) — **no separate table**
+- **Pre-fill on load** — always show existing photos in their current saved order; the "Save order" button is hidden until the admin makes a change (`isDirty`)
 - **First photo in the ordered list = hero** (`hero_image_url`)
 - Use **no new npm packages** — HTML5 native `draggable` API only
 - Use **existing `PATCH /api/venues/:id`** — pass `{ hero_image_url, photo_urls }` in body
@@ -642,11 +644,11 @@ const allPhotos = [
 
 ### Acceptance Criteria — Feature 5
 - [ ] `PhotoManager` component exists at `components/venues/PhotoManager.tsx`
-- [ ] Venue detail page shows all photos in a draggable grid
+- [ ] Venue detail page loads with **existing photos pre-filled** in their current saved order
+- [ ] "Save order" button is **hidden on load** and only appears after the admin makes a change
 - [ ] First photo is labeled "Hero"
 - [ ] Dragging a photo to a new position reorders the grid
 - [ ] Clicking × on a photo removes it from the grid
-- [ ] "Save order" button appears only when changes are made (isDirty)
 - [ ] Saving calls `PATCH /api/venues/:id` with `{ hero_image_url, photo_urls }`
 - [ ] "Save order" button shows "Saved ✓" feedback for 2 seconds after success
 - [ ] No new npm packages added
