@@ -10,8 +10,6 @@ export type VenueSubCategory =
   | 'recovery'  // wellness
   | 'games'     // casual
   | 'chill'     // casual
-  | 'wander'    // casual
-  | 'weird'     // casual
   | 'bar'       // nightlife
   | 'club';     // nightlife
 

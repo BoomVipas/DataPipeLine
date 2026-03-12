@@ -8,8 +8,6 @@ export const SUB_CATEGORY_LABELS: Record<VenueSubCategory, string> = {
   recovery: 'Recovery',
   games: 'Games',
   chill: 'Chill',
-  wander: 'Wander',
-  weird: 'Weird',
   bar: 'Bar',
   club: 'Club',
 };
@@ -19,7 +17,7 @@ export const SUB_CATEGORY_LABELS: Record<VenueSubCategory, string> = {
 export const SUB_CATEGORIES_BY_CATEGORY: Record<string, VenueSubCategory[]> = {
   fitness:   ['indoor', 'outdoor'],
   wellness:  ['mindful', 'recovery'],
-  casual:    ['games', 'chill', 'wander', 'weird'],
+  casual:    ['games', 'chill'],
   nightlife: ['bar', 'club'],
 };
 
