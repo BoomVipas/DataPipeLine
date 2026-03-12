@@ -12,8 +12,6 @@ const VALID_SUB_CATEGORIES: VenueSubCategory[] = [
   'recovery',
   'games',
   'chill',
-  'wander',
-  'weird',
   'bar',
   'club',
 ];

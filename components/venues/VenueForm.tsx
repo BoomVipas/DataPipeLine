@@ -37,8 +37,6 @@ const SUB_CATEGORY_TO_CATEGORY_KEY: Record<VenueSubCategory, string> = {
   recovery: 'wellness',
   games: 'casual',
   chill: 'casual',
-  wander: 'casual',
-  weird: 'casual',
   bar: 'nightlife',
   club: 'nightlife',
 };

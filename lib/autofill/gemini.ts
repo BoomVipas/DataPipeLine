@@ -23,7 +23,7 @@ type CategorySlug = (typeof CATEGORY_SLUGS)[number];
 const SUB_CATEGORIES_BY_CATEGORY: Record<CategorySlug, VenueSubCategory[]> = {
   fitness: ['indoor', 'outdoor'],
   wellness: ['mindful', 'recovery'],
-  casual: ['games', 'chill', 'wander', 'weird'],
+  casual: ['games', 'chill'],
   nightlife: ['bar', 'club'],
 };
 
@@ -36,8 +36,6 @@ const SUB_CATEGORY_ALIASES: Record<string, VenueSubCategory> = {
   games: 'games',
   game: 'games',
   chill: 'chill',
-  wander: 'wander',
-  weird: 'weird',
   bar: 'bar',
   club: 'club',
   night_club: 'club',
