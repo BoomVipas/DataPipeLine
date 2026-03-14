@@ -3,6 +3,34 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchApprovalPhotos } from '@/lib/autofill/photos';
 import type { VenueStatus } from '@/types/venue';
 
+/** Merge hero + photo_urls into one deduplicated array, hero first */
+function buildPhotoArray(hero: string | null, photos: string[] | null): string[] | null {
+  const all = [hero, ...(photos ?? [])].filter((u): u is string => !!u);
+  const deduped = [...new Set(all)];
+  return deduped.length > 0 ? deduped : null;
+}
+
+/** VenueSubCategory values that differ from the DB category.key */
+const SUB_CATEGORY_KEY_MAP: Record<string, string> = {
+  games: 'game',
+  recovery: 'recover',
+};
+
+async function resolveSubCategoryId(
+  subCategory: string | null,
+  fallbackCategoryId: string | null,
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<string | null> {
+  if (!subCategory) return fallbackCategoryId;
+  const lookupKey = SUB_CATEGORY_KEY_MAP[subCategory] ?? subCategory;
+  const { data } = await supabase
+    .from('category')
+    .select('id')
+    .eq('key', lookupKey)
+    .single();
+  return data?.id ?? fallbackCategoryId;
+}
+
 const VALID_TRANSITIONS: Record<VenueStatus, VenueStatus[]> = {
   draft: ['approved', 'published', 'archived'],
   approved: ['published', 'draft', 'archived'],
@@ -23,16 +51,18 @@ async function syncToActivity(
 
   if (!venue) throw new Error('Venue not found');
 
+  const categoryId = await resolveSubCategoryId(venue.sub_category, venue.category_id, supabase);
+  const combinedPhotos = buildPhotoArray(venue.hero_image_url, venue.photo_urls);
+
   const activityPayload = {
     name: venue.name,
-    category_id: venue.category_id ?? null,
+    category_id: categoryId,
     created_by: null,
     is_verified: true,
     is_temporary: false,
     google_place_id: venue.google_place_id ?? null,
     opening_hours: venue.opening_hours ?? null,
     price_level: venue.price_level ?? null,
-    crowd_level: null,
     vibe_stats: null,
     usage_count: 0,
     last_used_at: null,
@@ -45,6 +75,7 @@ async function syncToActivity(
     long_description: venue.long_description ?? null,
     features: venue.features ?? null,
     facilities: venue.facilities ?? null,
+    photo_urls: combinedPhotos,
   };
 
   // Re-publish: update existing activity row
@@ -116,6 +147,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (newStatus === 'published') {
+    // Guardrail: require lat/lng, google_place_id, sub_category before publishing
+    const { data: vCheck } = await supabase
+      .from('venues')
+      .select('lat, lng, google_place_id, sub_category')
+      .eq('id', id)
+      .single();
+    const missing: string[] = [];
+    if (!vCheck?.lat || !vCheck?.lng) missing.push('location (lat/lng)');
+    if (!vCheck?.google_place_id)     missing.push('Google Place ID');
+    if (!vCheck?.sub_category)        missing.push('sub-category');
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot publish — missing: ${missing.join(', ')}` },
+        { status: 422 }
+      );
+    }
+
     try {
       const activityId = await syncToActivity(id, supabase);
       update.published_by = adminUser.id;
@@ -141,6 +189,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // --- Photo fetch on approval or publish (any transition, no photos yet) ---
+  let photoWarning: string | null = null;
   if (
     (newStatus === 'approved' || newStatus === 'published') &&
     (!current.photo_urls || (current.photo_urls as string[]).length === 0)
@@ -164,9 +213,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // Cache the place ID to avoid re-searching on future calls
         if (placeId && !current.google_place_id) photoUpdate.google_place_id = placeId;
         await supabase.from('venues').update(photoUpdate).eq('id', id);
+
+        // Back-fill activity row if venue is published
+        const activityId =
+          (update.activity_id as string | undefined) ??
+          (current.activity_id as string | null ?? undefined);
+        if (activityId) {
+          const backfillHero = (current.hero_image_url as string | null) ?? photoUrls[0];
+          const backfillPhotos = buildPhotoArray(backfillHero, photoUrls);
+          await supabase
+            .from('activity')
+            .update({ photo_urls: backfillPhotos })
+            .eq('id', activityId);
+        }
       }
-    } catch {
-      // Non-blocking — approval succeeds even if photo fetch fails
+    } catch (err) {
+      photoWarning = err instanceof Error ? err.message : 'Photo fetch failed';
+      console.error('[photos] fetch failed for venue', id, ':', photoWarning);
     }
   }
 
@@ -178,5 +241,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     metadata: { old_status: current.status, new_status: newStatus },
   });
 
-  return NextResponse.json({ success: true, status: newStatus });
+  return NextResponse.json({
+    success: true,
+    status: newStatus,
+    ...(photoWarning ? { photoWarning } : {}),
+  });
 }
