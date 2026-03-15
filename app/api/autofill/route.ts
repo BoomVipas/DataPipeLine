@@ -77,8 +77,15 @@ export async function POST(req: NextRequest) {
           log.push(`[${ts()}] → Fetching photos from Google Places and saving to storage...`);
           try {
             const place = await searchByName(geminiData.name);
-            if (place?.id && !geminiData.google_place_id) {
-              geminiData.google_place_id = place.id;
+            if (place) {
+              // Always override with Google Places authoritative fields
+              if (place.id) geminiData.google_place_id = place.id;
+              if (place.location?.latitude)  geminiData.lat = place.location.latitude;
+              if (place.location?.longitude) geminiData.lng = place.location.longitude;
+              if (typeof place.rating === 'number') geminiData.rating = place.rating;
+              if (typeof place.userRatingCount === 'number') geminiData.rating_count = place.userRatingCount;
+              const phone = place.internationalPhoneNumber ?? place.nationalPhoneNumber;
+              if (phone) geminiData.phone = phone;
             }
 
             // Permanent storage now requires a real venues.id for FK in venue_photos.

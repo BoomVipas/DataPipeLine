@@ -131,7 +131,7 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this exact st
   "short_description": "2-3 sentence description for app venue cards",
   "long_description": "3-5 paragraph detailed description of the venue, its atmosphere, what to expect, and who it's for",
   "suggested_category": "fitness|wellness|casual|nightlife",
-  "suggested_sub_category": "indoor|outdoor|mindful|recovery|games|chill|wander|weird|bar|club"
+  "suggested_sub_category": "indoor|outdoor|mindful|recovery|games|chill|bar|club"
 }
 
 Rules:
@@ -143,7 +143,7 @@ Rules:
 - suggested_sub_category must match suggested_category:
   - fitness: indoor|outdoor
   - wellness: mindful|recovery
-  - casual: games|chill|wander|weird
+  - casual: games|chill
   - nightlife: bar|club
 - Use null for suggested_sub_category if uncertain
 - Features (max 5, choose ONLY the most distinctive and specific):
@@ -206,8 +206,8 @@ export async function searchVenueWithGemini(
   if (typeof data.rating_count === 'number') result.rating_count = Math.round(data.rating_count);
   if (typeof data.short_description === 'string') result.short_description = data.short_description;
   if (typeof data.long_description === 'string') result.long_description = data.long_description;
-  if (typeof data.instagram_url === 'string') result.instagram_url = data.instagram_url;
-  if (typeof data.facebook_url === 'string') result.facebook_url = data.facebook_url;
+  if (typeof data.instagram_url === 'string' && data.instagram_url.startsWith('http')) result.instagram_url = data.instagram_url;
+  if (typeof data.facebook_url === 'string' && data.facebook_url.startsWith('http')) result.facebook_url = data.facebook_url;
   if (typeof data.line_id === 'string') result.line_id = data.line_id;
   if (typeof data.booking_url === 'string') result.booking_url = data.booking_url;
   if (typeof data.booking_method === 'string' &&
