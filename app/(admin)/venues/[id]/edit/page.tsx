@@ -33,6 +33,11 @@ export default async function EditVenuePage({
 
   if (!venue) notFound();
 
+  const allPhotos = Array.from(new Set([
+    ...(venue.hero_image_url ? [venue.hero_image_url as string] : []),
+    ...(((venue.photo_urls as string[] | null) ?? []).filter(url => url !== venue.hero_image_url)),
+  ]));
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -56,6 +61,7 @@ export default async function EditVenuePage({
         venue={venue as Venue}
         venueId={id}
         adminUserId={adminUser.id}
+        initialPhotos={allPhotos}
       />
     </div>
   );

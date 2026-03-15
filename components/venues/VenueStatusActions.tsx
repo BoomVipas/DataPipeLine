@@ -28,11 +28,26 @@ interface VenueStatusActionsProps {
   venueId: string;
   currentStatus: VenueStatus;
   adminUserId: string;
+  venue: {
+    lat: number | null;
+    lng: number | null;
+    google_place_id: string | null;
+    sub_category: string | null;
+  };
+}
+
+function validateForPublish(venue: VenueStatusActionsProps['venue']): string[] {
+  const missing: string[] = [];
+  if (!venue.lat || !venue.lng)   missing.push('location (lat/lng)');
+  if (!venue.google_place_id)     missing.push('Google Place ID');
+  if (!venue.sub_category)        missing.push('sub-category');
+  return missing;
 }
 
 export default function VenueStatusActions({
   venueId,
   currentStatus,
+  venue,
 }: VenueStatusActionsProps) {
   const router = useRouter();
   const [loading, setLoading] = useState<VenueStatus | null>(null);
@@ -41,8 +56,17 @@ export default function VenueStatusActions({
   const actions = NEXT_ACTIONS[currentStatus] ?? [];
 
   async function changeStatus(newStatus: VenueStatus) {
-    setLoading(newStatus);
     setError(null);
+
+    if (newStatus === 'published') {
+      const missing = validateForPublish(venue);
+      if (missing.length > 0) {
+        setError(`Cannot publish — missing: ${missing.join(', ')}`);
+        return;
+      }
+    }
+
+    setLoading(newStatus);
 
     const res = await fetch(`/api/venues/${venueId}/status`, {
       method: 'PATCH',

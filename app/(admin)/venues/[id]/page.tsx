@@ -102,6 +102,12 @@ export default async function VenueDetailPage({
           venueId={id}
           currentStatus={v.status}
           adminUserId={adminUser.id}
+          venue={{
+            lat: v.lat ?? null,
+            lng: v.lng ?? null,
+            google_place_id: v.google_place_id ?? null,
+            sub_category: v.sub_category ?? null,
+          }}
         />
       )}
 

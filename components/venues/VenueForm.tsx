@@ -10,7 +10,8 @@ import type {
 import type { AutofillVenueData } from '@/types/autofill';
 import {
   BANGKOK_DISTRICTS, COMMON_FEATURES, COMMON_FACILITIES,
-  FEATURES_BY_CATEGORY, SUB_CATEGORIES_BY_CATEGORY, SUB_CATEGORY_LABELS,
+  FEATURES_BY_CATEGORY, FEATURES_BY_SUB_CATEGORY, FACILITIES_BY_SUB_CATEGORY,
+  SUB_CATEGORIES_BY_CATEGORY, SUB_CATEGORY_LABELS,
 } from '@/lib/utils/categories';
 
 const EMPTY_HOURS: OperatingHours = {
@@ -236,10 +237,13 @@ export default function VenueForm({
   const availableSubCategories = selectedCategory?.key
     ? (SUB_CATEGORIES_BY_CATEGORY[selectedCategory.key] ?? [])
     : [];
-  // Feature suggestions filtered to the selected category
-  const featureSuggestions = selectedCategory?.key
-    ? (FEATURES_BY_CATEGORY[selectedCategory.key] ?? COMMON_FEATURES)
-    : COMMON_FEATURES;
+  // Feature/facility suggestions: prefer sub_category, fall back to category, then common
+  const featureSuggestions = subCategory
+    ? (FEATURES_BY_SUB_CATEGORY[subCategory] ?? FEATURES_BY_CATEGORY[selectedCategory?.key ?? ''] ?? COMMON_FEATURES)
+    : (FEATURES_BY_CATEGORY[selectedCategory?.key ?? ''] ?? COMMON_FEATURES);
+  const facilitySuggestions = subCategory
+    ? (FACILITIES_BY_SUB_CATEGORY[subCategory] ?? COMMON_FACILITIES)
+    : COMMON_FACILITIES;
 
   function addChip(list: string[], setList: (v: string[]) => void, value: string) {
     const t = value.trim();
@@ -388,7 +392,7 @@ export default function VenueForm({
             onRemove={item => removeChip(facilities, setFacilities, item)}
             inputValue={facilitiesInput}
             onInputChange={setFacilitiesInput}
-            suggestions={COMMON_FACILITIES}
+            suggestions={facilitySuggestions}
             placeholder="Parking, Locker Room..."
           />
         </Field>

@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
   const serviceClient = createServiceClient(
     process.env.EXPO_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { db: { schema: 'api' } }
   );
 
   const { data: adminUser, error: adminError } = await serviceClient

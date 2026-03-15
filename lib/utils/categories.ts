@@ -75,17 +75,32 @@ export const COMMON_FEATURES = [
   'Beginner Friendly', 'All Levels Welcome', 'Intermediate', 'Advanced Level', 'Expert Only',
   // Session format
   'Drop-in Welcome', 'Class Schedule', 'Private Sessions', 'Group Classes', 'Reservations Required',
+  'Walk-in Welcome', 'Appointment Required', 'Day Pass Available', 'Monthly Membership',
   // Audience
-  'Kids Welcome', 'Pet Friendly', 'Members Only',
-  // Equipment
-  'Gear Included', 'Gear Rental',
+  'Kids Welcome', 'Kid Friendly', 'Pet Friendly', 'Members Only',
+  'Good for Groups', 'Good for Solo',
+  // Equipment / supplies
+  'Gear Included', 'Gear Rental', 'Equipment Provided', 'Mat Provided',
+  // Instructors / staff
+  'Certified Instructors', 'Certified Therapists', 'Personal Training',
   // Amenities / vibe
-  'Air Conditioned', 'Outdoor Area', 'Rooftop', 'Open 24/7',
-  'Pool', 'Sauna', 'Steam Room', 'Hot Tub',
-  // Instructors
-  'Certified Instructors',
-  // Nightlife / social
+  'Air Conditioned', 'Outdoor Area', 'Outdoor Seating', 'Rooftop', 'Rooftop Bar', 'Open 24/7',
+  'Pool', 'Sauna', 'Steam Room', 'Hot Tub', 'Ice Bath', 'Peaceful Environment',
+  'Scenic Views', 'Instagrammable', 'Working Space',
+  // Food & drink
   'Live Music', 'DJ', 'Happy Hour', 'BYOB', 'Food Available', 'Cocktail Bar',
+  'Craft Beer', 'Wine Selection', 'Coffee & Drinks', 'Food Menu', 'Desserts', 'Vegan Options',
+  'Food & Drinks Available',
+  // Nightlife specific
+  'Dance Floor', 'Bottle Service', 'VIP Section', 'Guest List', 'Dress Code',
+  'Open Bar Nights', 'Late Night', 'Sports Screening', 'Live Performance',
+  'EDM', 'Hip-Hop', 'House Music',
+  // Wellness specific
+  'Traditional Thai Massage', 'Aromatherapy', 'Hot Stone', 'Compression Therapy',
+  'Couples Available',
+  // Activity / casual
+  'Board Games', 'Video Games', 'VR Available', 'Tournaments', 'Competitive',
+  'Reservations Available',
 ] as const;
 
 // Feature suggestions shown in the form, filtered by category.
@@ -114,6 +129,63 @@ export const FEATURES_BY_CATEGORY: Record<string, readonly string[]> = {
     'Rooftop', 'Outdoor Area', 'Members Only', 'Reservations Required',
     'Air Conditioned', 'Open 24/7',
   ],
+};
+
+// Feature suggestions filtered by sub_category — more specific than FEATURES_BY_CATEGORY.
+export const FEATURES_BY_SUB_CATEGORY: Record<string, readonly string[]> = {
+  bar: [
+    'Live Music', 'DJ', 'Cocktail Bar', 'Happy Hour', 'Craft Beer', 'Wine Selection',
+    'Sports Screening', 'Outdoor Seating', 'Rooftop Bar', 'Late Night', 'Food Available',
+    'Bottle Service', 'Pet Friendly', 'Good for Groups',
+  ],
+  club: [
+    'DJ', 'Live Performance', 'Dance Floor', 'Bottle Service', 'VIP Section',
+    'Rooftop', 'Guest List', 'Dress Code', 'EDM', 'Hip-Hop', 'House Music',
+    'Open Bar Nights', 'Late Night',
+  ],
+  indoor: [
+    'Beginner Friendly', 'All Levels Welcome', 'Advanced Level',
+    'Personal Training', 'Group Classes', 'Drop-in Welcome', 'Day Pass Available',
+    'Monthly Membership', 'Certified Instructors', 'Equipment Provided',
+    'Air Conditioned', 'Open 24/7',
+  ],
+  outdoor: [
+    'Beginner Friendly', 'All Levels Welcome', 'Advanced Level',
+    'Group Classes', 'Certified Instructors', 'Equipment Provided',
+    'Pet Friendly', 'Scenic Views',
+  ],
+  mindful: [
+    'Beginner Friendly', 'All Levels Welcome', 'Drop-in Welcome',
+    'Private Sessions', 'Group Classes', 'Certified Instructors',
+    'Mat Provided', 'Air Conditioned', 'Peaceful Environment', 'Reservations Required',
+  ],
+  recovery: [
+    'Walk-in Welcome', 'Appointment Required', 'Certified Therapists',
+    'Traditional Thai Massage', 'Aromatherapy', 'Hot Stone',
+    'Sauna', 'Steam Room', 'Ice Bath', 'Compression Therapy', 'Couples Available',
+  ],
+  chill: [
+    'Pet Friendly', 'Kid Friendly', 'Outdoor Seating', 'Air Conditioned',
+    'Good for Groups', 'Good for Solo', 'Working Space', 'Coffee & Drinks',
+    'Food Menu', 'Desserts', 'Vegan Options', 'Instagrammable', 'BYOB',
+  ],
+  games: [
+    'Walk-in Welcome', 'Reservations Available', 'Kid Friendly', 'Good for Groups',
+    'Food & Drinks Available', 'Board Games', 'Video Games', 'VR Available',
+    'Tournaments', 'Competitive',
+  ],
+};
+
+// Facility suggestions filtered by sub_category.
+export const FACILITIES_BY_SUB_CATEGORY: Record<string, readonly string[]> = {
+  bar:      ['Parking', 'Valet', 'Security', 'Restrooms', 'Card Payment', 'WiFi'],
+  club:     ['Parking', 'Valet', 'Security', 'Restrooms', 'Card Payment', 'Coat Check'],
+  indoor:   ['Locker Room', 'Showers', 'Changing Room', 'Parking', 'WiFi', 'Restrooms'],
+  outdoor:  ['Parking', 'Restrooms', 'WiFi'],
+  mindful:  ['Locker Room', 'Showers', 'Changing Room', 'Restrooms', 'WiFi'],
+  recovery: ['Locker Room', 'Showers', 'Changing Room', 'Restrooms', 'WiFi', 'Parking'],
+  chill:    ['WiFi', 'Parking', 'Restrooms', 'Card Payment', 'Wheelchair Accessible'],
+  games:    ['WiFi', 'Parking', 'Restrooms', 'Card Payment'],
 };
 
 export const CATEGORY_ICONS: Record<string, string> = {

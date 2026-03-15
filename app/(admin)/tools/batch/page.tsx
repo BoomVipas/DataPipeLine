@@ -115,21 +115,18 @@ function QueueCard({ item, onApprove, onRemove, onRetry }: QueueCardProps) {
   return (
     <div className="bg-card border border-white/[0.07] rounded-xl overflow-hidden flex flex-col">
       {/* Photo / placeholder */}
-      {item.status === 'saved' ? (
+      {item.photoPreview ? (
         <div className="h-32 bg-raised shrink-0 relative overflow-hidden">
-          {item.photoPreview ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={item.photoPreview}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-ghost/40" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-              </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={item.photoPreview}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+          {/* Overlay spinner while still saving */}
+          {item.status === 'saving' && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             </div>
           )}
         </div>
@@ -316,8 +313,13 @@ export default function BatchPage() {
 
       const { venue }: { venue: AutofillVenueData } = await autofillRes.json();
 
-      // Step 2: Auto-save as draft
-      setQueue(q => q.map(i => i.id === id ? { ...i, status: 'saving' } : i));
+      // Step 2: Auto-save as draft — show photo + name immediately
+      setQueue(q => q.map(i => i.id === id ? {
+        ...i,
+        status: 'saving',
+        photoPreview: venue.preview_photo_url ?? undefined,
+        venueName: venue.name,
+      } : i));
 
       const category_id = venue.suggested_category_slug
         ? (categoryMapRef.current[venue.suggested_category_slug] ?? null)
